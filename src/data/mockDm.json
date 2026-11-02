@@ -1,0 +1,18 @@
+{
+  "chatType": "dm",
+  "chatName": "Ada & David 💛",
+  "range": { "start": "18 Mar 2026", "end": "28 Oct 2026" },
+  "totals": { "messages": 9832, "words": 68804, "activeDays": 217, "emojis": 6210, "busiestDay": { "date": "7 Aug", "count": 509 } },
+  "members": [
+    { "id": "ada", "name": "Ada", "messages": 5210, "sharePct": 53, "avgReplyMins": 7, "longestSilenceHrs": 38, "starts": 91, "laughs": 834, "sorrys": 48, "nightMessages": 612, "mediaCount": 219 },
+    { "id": "david", "name": "David", "messages": 4622, "sharePct": 47, "avgReplyMins": 12, "longestSilenceHrs": 72, "starts": 73, "laughs": 702, "sorrys": 63, "nightMessages": 418, "mediaCount": 301 }
+  ],
+  "nightOwl": { "peakHour": 1, "topMemberId": "ada", "nightMessageCount": 612 },
+  "naija": { "abeg": 211, "wahala": 148, "omo": 336, "nawa": 81, "sha": 229 },
+  "topWords": [{ "word": "baby", "count": 641 }, { "word": "home", "count": 392 }, { "word": "sorry", "count": 111 }, { "word": "food", "count": 298 }, { "word": "sleep", "count": 270 }],
+  "awards": [
+    { "memberId": "ada", "title": "The First Texter", "reason": "Restarted the chat 91 times" },
+    { "memberId": "david", "title": "The Sorry Machine", "reason": "Said sorry 63 times" }
+  ],
+  "verdict": { "title": "Soft Life, Loud Notifications", "blurb": "Equal parts check-ins, food updates, and one person saying ‘I’m coming’ while still at home." }
+}

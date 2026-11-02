@@ -1,0 +1,61 @@
+export type ChatType = 'group' | 'dm'
+
+export type Member = {
+  id: string
+  name: string
+  messages: number
+  sharePct: number
+  avgReplyMins: number
+  longestSilenceHrs: number
+  starts: number
+  laughs: number
+  sorrys: number
+  nightMessages: number
+  mediaCount: number
+}
+
+export type LayoutType = 'bigNumber' | 'leaderboard' | 'versus' | 'quote' | 'timeline' | 'award' | 'wordCloud' | 'heatmap' | 'verdict' | 'cover'
+
+export type Fact = {
+  id: string
+  kind: string
+  memberIds: string[]
+  value: number | string
+  detail?: string
+  surpriseScore: number
+}
+
+export type Card = {
+  id: string
+  layout: LayoutType
+  factIds: string[]
+  headline: string
+  roast: string
+  savageRoast?: string
+  locked: boolean
+}
+
+export type AnalysisResult = {
+  chatType: ChatType
+  chatName: string
+  range: { start: string; end: string }
+  totals: {
+    messages: number
+    words: number
+    activeDays: number
+    emojis: number
+    busiestDay: { date: string; count: number }
+  }
+  members: Member[]
+  facts: Fact[]
+  cards: Card[]
+}
+
+export type AggregateChat = Omit<AnalysisResult, 'facts' | 'cards'> & {
+  nightOwl?: { peakHour: number; topMemberId: string; nightMessageCount: number }
+  naija?: { abeg: number; wahala: number; omo: number; nawa: number; sha: number }
+  topWords?: { word: string; count: number }[]
+  verdict?: { title: string; blurb: string }
+  sourceKind?: 'friends' | 'study' | 'couple' | 'upload'
+  thinStats?: boolean
+}

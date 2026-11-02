@@ -1,0 +1,28 @@
+{
+  "chatType": "group",
+  "chatName": "No Dull Moment 🔥",
+  "range": { "start": "2 Jan 2026", "end": "28 Oct 2026" },
+  "totals": { "messages": 14203, "words": 91840, "activeDays": 286, "emojis": 7902, "busiestDay": { "date": "14 Feb", "count": 647 } },
+  "members": [
+    { "id": "zainab", "name": "Zainab", "messages": 3564, "sharePct": 25.1, "avgReplyMins": 4, "longestSilenceHrs": 18, "starts": 81, "laughs": 1122, "sorrys": 34, "nightMessages": 504, "mediaCount": 207 },
+    { "id": "tobi", "name": "Tobi", "messages": 2983, "sharePct": 21.0, "avgReplyMins": 8, "longestSilenceHrs": 23, "starts": 103, "laughs": 846, "sorrys": 19, "nightMessages": 944, "mediaCount": 136 },
+    { "id": "amaka", "name": "Amaka", "messages": 2447, "sharePct": 17.2, "avgReplyMins": 6, "longestSilenceHrs": 31, "starts": 76, "laughs": 492, "sorrys": 97, "nightMessages": 348, "mediaCount": 89 },
+    { "id": "femi", "name": "Femi", "messages": 2132, "sharePct": 15.0, "avgReplyMins": 11, "longestSilenceHrs": 42, "starts": 64, "laughs": 722, "sorrys": 14, "nightMessages": 286, "mediaCount": 314 },
+    { "id": "chioma", "name": "Chioma", "messages": 1740, "sharePct": 12.3, "avgReplyMins": 14, "longestSilenceHrs": 61, "starts": 48, "laughs": 284, "sorrys": 41, "nightMessages": 201, "mediaCount": 65 },
+    { "id": "kunle", "name": "Kunle", "messages": 1102, "sharePct": 7.8, "avgReplyMins": 28, "longestSilenceHrs": 110, "starts": 33, "laughs": 118, "sorrys": 9, "nightMessages": 82, "mediaCount": 43 },
+    { "id": "segun", "name": "Segun", "messages": 235, "sharePct": 1.6, "avgReplyMins": 411, "longestSilenceHrs": 1190, "starts": 3, "laughs": 12, "sorrys": 2, "nightMessages": 7, "mediaCount": 4 }
+  ],
+  "nightOwl": { "peakHour": 3, "topMemberId": "tobi", "nightMessageCount": 944 },
+  "naija": { "abeg": 441, "wahala": 309, "omo": 812, "nawa": 193, "sha": 528 },
+  "topWords": [
+    { "word": "omo", "count": 812 }, { "word": "actually", "count": 670 }, { "word": "abeg", "count": 441 }, { "word": "tomorrow", "count": 389 }, { "word": "wahala", "count": 309 }
+  ],
+  "awards": [
+    { "memberId": "zainab", "title": "The Main Character", "reason": "Sent 1 in every 4 messages" },
+    { "memberId": "tobi", "title": "The Night Owl", "reason": "944 messages after midnight" },
+    { "memberId": "amaka", "title": "The Sorry Machine", "reason": "Apologised 97 times" },
+    { "memberId": "femi", "title": "The Link Dropper", "reason": "Shared 314 media posts" },
+    { "memberId": "segun", "title": "The Ghost", "reason": "Disappeared for 49 days" }
+  ],
+  "verdict": { "title": "Chaotic Good Gist Hub", "blurb": "Half support group, half breaking-news desk. Somehow, the plans still never leave the group chat." }
+}

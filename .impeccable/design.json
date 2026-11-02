@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-02T00:46:04+01:00",
+  "title": "Design System: Chat Wrapped",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Application Ink",
+        "canonical": "#201411",
+        "tonalRamp": ["oklch(15% 0.025 38)", "oklch(25% 0.025 38)", "oklch(35% 0.023 38)", "oklch(48% 0.020 38)", "oklch(60% 0.016 38)", "oklch(72% 0.012 38)", "oklch(84% 0.008 38)", "oklch(95% 0.004 38)"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Application Paper",
+        "canonical": "#fffaf0",
+        "tonalRamp": ["oklch(15% 0.018 82)", "oklch(25% 0.021 82)", "oklch(35% 0.024 82)", "oklch(48% 0.028 82)", "oklch(60% 0.032 82)", "oklch(72% 0.036 82)", "oklch(84% 0.040 82)", "oklch(97% 0.027 82)"]
+      },
+      "action": {
+        "role": "primary",
+        "displayName": "Action Orange",
+        "canonical": "#ff5b36",
+        "tonalRamp": ["oklch(15% 0.075 35)", "oklch(25% 0.115 35)", "oklch(35% 0.155 35)", "oklch(48% 0.195 35)", "oklch(60% 0.220 35)", "oklch(72% 0.190 35)", "oklch(84% 0.115 35)", "oklch(95% 0.045 35)"]
+      },
+      "hot-pink": {
+        "role": "secondary",
+        "displayName": "Hot Pink",
+        "canonical": "#ff4e91",
+        "tonalRamp": ["oklch(15% 0.075 358)", "oklch(25% 0.115 358)", "oklch(35% 0.160 358)", "oklch(48% 0.205 358)", "oklch(60% 0.225 358)", "oklch(72% 0.190 358)", "oklch(84% 0.115 358)", "oklch(95% 0.045 358)"]
+      },
+      "celebration-yellow": {
+        "role": "secondary",
+        "displayName": "Celebration Yellow",
+        "canonical": "#ffe45c",
+        "tonalRamp": ["oklch(15% 0.050 96)", "oklch(25% 0.080 96)", "oklch(35% 0.105 96)", "oklch(48% 0.130 96)", "oklch(60% 0.145 96)", "oklch(72% 0.150 96)", "oklch(84% 0.140 96)", "oklch(95% 0.070 96)"]
+      },
+      "trust-green": {
+        "role": "tertiary",
+        "displayName": "Trust Green",
+        "canonical": "#123f34",
+        "tonalRamp": ["oklch(15% 0.035 171)", "oklch(25% 0.050 171)", "oklch(35% 0.065 171)", "oklch(48% 0.075 171)", "oklch(60% 0.070 171)", "oklch(72% 0.055 171)", "oklch(84% 0.035 171)", "oklch(95% 0.015 171)"]
+      },
+      "focus-blue": {
+        "role": "tertiary",
+        "displayName": "Focus Blue",
+        "canonical": "#3b63ff",
+        "tonalRamp": ["oklch(15% 0.080 267)", "oklch(25% 0.125 267)", "oklch(35% 0.170 267)", "oklch(48% 0.215 267)", "oklch(60% 0.235 267)", "oklch(72% 0.190 267)", "oklch(84% 0.110 267)", "oklch(95% 0.040 267)"]
+      },
+      "story-shell": {
+        "role": "neutral",
+        "displayName": "Story Shell",
+        "canonical": "#17100e",
+        "tonalRamp": ["oklch(15% 0.015 37)", "oklch(25% 0.017 37)", "oklch(35% 0.018 37)", "oklch(48% 0.017 37)", "oklch(60% 0.014 37)", "oklch(72% 0.011 37)", "oklch(84% 0.007 37)", "oklch(95% 0.003 37)"]
+      },
+      "story-shell-raised": {
+        "role": "neutral",
+        "displayName": "Story Shell Raised",
+        "canonical": "#2b211e",
+        "tonalRamp": ["oklch(15% 0.018 37)", "oklch(25% 0.021 37)", "oklch(35% 0.022 37)", "oklch(48% 0.020 37)", "oklch(60% 0.016 37)", "oklch(72% 0.012 37)", "oklch(84% 0.008 37)", "oklch(95% 0.004 37)"]
+      },
+      "story-shell-text": {
+        "role": "neutral",
+        "displayName": "Story Shell Text",
+        "canonical": "#f8eee0",
+        "tonalRamp": ["oklch(15% 0.018 70)", "oklch(25% 0.021 70)", "oklch(35% 0.025 70)", "oklch(48% 0.030 70)", "oklch(60% 0.034 70)", "oklch(72% 0.036 70)", "oklch(84% 0.034 70)", "oklch(95% 0.022 70)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Campaign Display", "purpose": "Landing promise and singular campaign-scale statements." },
+      "headline": { "displayName": "Flow Headline", "purpose": "Setup, modal, and flow titles." },
+      "story-title": { "displayName": "Story Reveal", "purpose": "The primary evidence-led reveal inside a 360 × 640 card." },
+      "body": { "displayName": "Product Body", "purpose": "Instructions, privacy, commerce, and supporting explanation." },
+      "label": { "displayName": "Stamp Label", "purpose": "Chips, stamps, progress, compact metadata, and statuses." }
+    },
+    "themeVariableSets": {
+      "sunset": { "name": "Sunset Pop", "vibe": "Sweet heat", "free": true, "--bg-from": "#ff4f5e", "--bg-to": "#ff8a37", "--surface": "#fff4d8", "--text": "#26110e", "--muted": "#6f4035", "--accent": "#ffe45c", "--accent-2": "#ff4fa7" },
+      "lagos": { "name": "Lagos Neon", "vibe": "After dark", "free": false, "--bg-from": "#0a0b09", "--bg-to": "#25103a", "--surface": "#161713", "--text": "#f7ffe9", "--muted": "#b3c5aa", "--accent": "#a8ff35", "--accent-2": "#ff3bbd" },
+      "detty": { "name": "Detty Gold", "vibe": "Big energy", "free": false, "--bg-from": "#003f31", "--bg-to": "#0c1d18", "--surface": "#174c3d", "--text": "#fff8e1", "--muted": "#c9ded4", "--accent": "#ffda66", "--accent-2": "#ff7d52" },
+      "bubblegum": { "name": "Bubblegum", "vibe": "Soft chaos", "free": false, "--bg-from": "#ffb8d9", "--bg-to": "#a7d7ff", "--surface": "#fff7fc", "--text": "#352342", "--muted": "#735b7b", "--accent": "#ffea77", "--accent-2": "#9b5cff" },
+      "midnight": { "name": "Midnight", "vibe": "Low-key loud", "free": false, "--bg-from": "#081735", "--bg-to": "#162a52", "--surface": "#173f59", "--text": "#f2fcff", "--muted": "#badbe7", "--accent": "#57edf5", "--accent-2": "#ff7aa3" },
+      "mint": { "name": "Mint Fresh", "vibe": "Clean gist", "free": false, "--bg-from": "#bdf5d4", "--bg-to": "#ecffcf", "--surface": "#f7fff3", "--text": "#12372c", "--muted": "#507466", "--accent": "#ff7a59", "--accent-2": "#6f5bff" }
+    },
+    "fontOptions": {
+      "bricolage": { "name": "Bricolage", "free": true, "stack": "Bricolage Grotesque Variable, sans-serif" },
+      "fredoka": { "name": "Fredoka", "free": false, "stack": "Fredoka, sans-serif", "weight": 600 },
+      "bebas": { "name": "Bebas Neue", "free": false, "stack": "Bebas Neue, sans-serif" },
+      "storyBody": { "name": "Manrope", "free": true, "stack": "Manrope Variable, sans-serif" }
+    },
+    "shadows": [
+      { "name": "button-lift", "value": "0 9px 20px rgba(56, 22, 12, .18)", "purpose": "Resting depth for primary application buttons." },
+      { "name": "action-lift", "value": "0 12px 26px rgba(218, 71, 38, .27)", "purpose": "Stronger landing conversion emphasis." },
+      { "name": "card-selection", "value": "0 10px 24px rgba(80, 45, 26, .11)", "purpose": "Active selection card only." },
+      { "name": "story-float", "value": "0 28px 60px rgba(0, 0, 0, .34)", "purpose": "Central story artifact against the dark shell." },
+      { "name": "modal-lift", "value": "0 28px 70px rgba(15, 8, 5, .35)", "purpose": "Dialog separation over a blurred scrim." },
+      { "name": "drawer-edge", "value": "-20px 0 50px rgba(0, 0, 0, .3)", "purpose": "Customiser separation from the story." }
+    ],
+    "motion": [
+      { "name": "control-lift", "value": "160ms ease", "purpose": "Two-pixel hover lift for buttons and selectable cards." },
+      { "name": "direct-state", "value": "150–200ms ease", "purpose": "Fast visual confirmation for borders, backgrounds, and switches." },
+      { "name": "story-travel", "value": "380ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Signature 60px directional travel with 8px blur for story navigation only." },
+      { "name": "auto-advance", "value": "6000ms linear", "purpose": "Optional story progress timer." },
+      { "name": "reduced-motion", "value": "0.01ms, one iteration", "purpose": "Effectively instant transitions and animations when reduced motion is requested." }
+    ],
+    "breakpoints": [
+      { "name": "composition", "value": "900px" },
+      { "name": "mobile", "value": "700px" },
+      { "name": "compact-mobile", "value": "390px" }
+    ],
+    "storyGeometry": {
+      "screenFrame": "360px × 640px",
+      "aspectRatio": "9 / 16",
+      "export": "1080px × 1920px",
+      "desktopRadius": "16px",
+      "mobileRadius": "14px",
+      "slidePadding": "23px"
+    },
+    "ownershipPolicy": {
+      "livePreview": ["premium theme", "premium display font", "Savage mode"],
+      "gatedPaths": ["save current card", "download all cards", "Web Share", "download fallback after unavailable Web Share"],
+      "rule": "Every in-app asset-release path must verify core unlock and ownership of each active paid style before rendering or releasing the asset.",
+      "lockedDom": "Locked story cards mount redacted templates only; referenced facts, names, values, outgoing unlocked transitions, and hidden export cards remain unmounted until purchase."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The default high-confidence action on warm application surfaces.",
+      "html": "<button class=\"ds-btn-primary\">CONTINUE</button>",
+      "css": ".ds-btn-primary { min-height: 52px; border: 0; border-radius: 14px; padding: 0 22px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; background: var(--ink, #201411); color: #fff; font: 800 1rem/1 'Manrope Variable', sans-serif; box-shadow: 0 9px 20px rgba(56,22,12,.18); cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; } .ds-btn-primary:hover { transform: translateY(-2px); } .ds-btn-primary:active { transform: translateY(0); } .ds-btn-primary:focus-visible { outline: 3px solid #3b63ff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A quieter action with a warm inset border.",
+      "html": "<button class=\"ds-btn-secondary\">SAVE CARD</button>",
+      "css": ".ds-btn-secondary { min-height: 52px; border: 0; border-radius: 14px; padding: 0 22px; display: inline-flex; align-items: center; justify-content: center; background: #fff; color: var(--ink, #201411); font: 800 1rem/1 'Manrope Variable', sans-serif; box-shadow: inset 0 0 0 1.5px #d8c6b4; cursor: pointer; transition: transform .16s ease; } .ds-btn-secondary:hover { transform: translateY(-2px); } .ds-btn-secondary:active { transform: translateY(0); } .ds-btn-secondary:focus-visible { outline: 3px solid #3b63ff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Selection Card",
+      "kind": "card",
+      "refersTo": "selection-card",
+      "description": "A selectable setup option with warm paper, chunky icon geometry, and an explicit active state.",
+      "html": "<button class=\"ds-selection-card\"><span class=\"ds-selection-icon\">👥</span><span><strong>Group chat</strong><small>Expose the full group dynamic.</small></span><b>→</b></button>",
+      "css": ".ds-selection-card { width: 100%; min-height: 112px; padding: 19px; border: 1.5px solid #dccbb8; border-radius: 16px; background: rgba(255,255,255,.72); color: var(--ink, #201411); display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; text-align: left; font-family: 'Manrope Variable', sans-serif; cursor: pointer; transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; } .ds-selection-card:hover { transform: translateY(-2px); border-color: var(--ink, #201411); box-shadow: 0 10px 24px rgba(80,45,26,.11); background: #fff; } .ds-selection-card:focus-visible { outline: 3px solid #3b63ff; outline-offset: 3px; } .ds-selection-card strong, .ds-selection-card small { display: block; } .ds-selection-card strong { font: 800 1.2rem/1 'Bricolage Grotesque Variable', sans-serif; } .ds-selection-card small { margin-top: 5px; color: #765c52; line-height: 1.4; } .ds-selection-icon { width: 54px; height: 54px; border-radius: 14px; display: grid; place-items: center; background: #ffe483; font-size: 1.45rem; }"
+    },
+    {
+      "name": "Preview Chip",
+      "kind": "chip",
+      "description": "A compact ownership/status label used for preview, paid, and best-value states.",
+      "html": "<span class=\"ds-preview-chip\">PREVIEW ONLY</span>",
+      "css": ".ds-preview-chip { width: fit-content; display: inline-flex; align-items: center; min-height: 26px; padding: 5px 8px; border-radius: 999px; background: var(--yellow, #ffe45c); color: var(--ink, #201411); font: 900 .7rem/1 'Manrope Variable', sans-serif; letter-spacing: .04em; }"
+    },
+    {
+      "name": "Story Frame",
+      "kind": "custom",
+      "refersTo": "story-frame",
+      "description": "The signature 9:16 confession card using a closed seven-role theme palette.",
+      "html": "<article class=\"ds-story-frame\" style=\"--ds-bg-from:#ff4f5e;--ds-bg-to:#ff8a37;--ds-surface:#fff4d8;--ds-text:#26110e;--ds-muted:#6f4035;--ds-accent:#ffe45c;--ds-accent-2:#ff4fa7\"><header><span>3AM CLUB</span><b>03 / 10</b></header><div class=\"ds-story-clock\">3:17</div><h2>Sleep was never the priority.</h2><section><span>Messages after midnight</span><strong>684</strong></section><p>Somebody always had one last gist.</p></article>",
+      "css": ".ds-story-frame { width: 360px; max-width: 100%; aspect-ratio: 9 / 16; position: relative; overflow: hidden; padding: 23px; border-radius: 16px; display: flex; flex-direction: column; color: var(--ds-text); background: linear-gradient(155deg, var(--ds-bg-from), var(--ds-bg-to)); font-family: 'Manrope Variable', sans-serif; box-shadow: 0 28px 60px rgba(0,0,0,.34); } .ds-story-frame::before { content: ''; position: absolute; width: 270px; height: 270px; right: -150px; top: 84px; border-radius: 50%; border: 55px solid color-mix(in srgb, var(--ds-accent) 38%, transparent); } .ds-story-frame > * { position: relative; z-index: 1; } .ds-story-frame header { min-height: 28px; padding-bottom: 11px; border-bottom: 1px solid color-mix(in srgb, var(--ds-text) 28%, transparent); display: flex; justify-content: space-between; font-size: .65rem; font-weight: 850; letter-spacing: .06em; } .ds-story-clock { margin-top: 35px; font: 900 4.9rem/.9 'Bricolage Grotesque Variable', sans-serif; letter-spacing: -.04em; } .ds-story-frame h2 { margin: 10px 0 22px; max-width: 300px; font: 800 2.35rem/.94 'Bricolage Grotesque Variable', sans-serif; letter-spacing: -.03em; } .ds-story-frame section { padding: 15px; border-radius: 14px; display: flex; align-items: center; justify-content: space-between; background: var(--ds-surface); } .ds-story-frame section span { max-width: 110px; color: var(--ds-muted); font-size: .69rem; font-weight: 750; } .ds-story-frame section strong { font: 850 2.1rem/1 'Bricolage Grotesque Variable', sans-serif; } .ds-story-frame p { margin: auto 0 9px; font: 800 1.03rem/1.17 'Bricolage Grotesque Variable', sans-serif; } .ds-story-frame:focus-within { outline: 3px solid #3b63ff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Story Navigation",
+      "kind": "nav",
+      "description": "Compact story-shell utilities that recede around the card.",
+      "html": "<nav class=\"ds-story-nav\"><strong>Chat Wrapped</strong><div><button>▶ AUTO-PLAY</button><button>⚙ CUSTOMISE</button><button aria-label=\"Close story\">×</button></div></nav>",
+      "css": ".ds-story-nav { min-height: 68px; padding: 14px 24px; border-bottom: 1px solid #3b2c27; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #17100e; color: #f8eee0; font-family: 'Manrope Variable', sans-serif; } .ds-story-nav > strong { font: 800 1.06rem/1 'Bricolage Grotesque Variable', sans-serif; letter-spacing: -.025em; } .ds-story-nav > div { display: flex; gap: 7px; } .ds-story-nav button { min-height: 40px; padding: 0 13px; border: 0; border-radius: 999px; background: #2b211e; color: #f8eee0; font-size: .72rem; font-weight: 800; cursor: pointer; } .ds-story-nav button:hover { background: #3b2d29; } .ds-story-nav button:focus-visible { outline: 3px solid #3b63ff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Modal",
+      "kind": "custom",
+      "description": "A warm-paper dialog over a blurred ink scrim; production use must trap and restore focus and close on Escape.",
+      "html": "<div class=\"ds-modal-backdrop\"><section class=\"ds-modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"ds-modal-title\"><header><h2 id=\"ds-modal-title\">Your chat stays yours</h2><button aria-label=\"Close\">×</button></header><p>Everything is processed on this device.</p><button class=\"ds-modal-action\">GOT IT</button></section></div>",
+      "css": ".ds-modal-backdrop { min-height: 420px; padding: 20px; display: grid; place-items: center; background: rgba(32,20,17,.62); backdrop-filter: blur(7px); font-family: 'Manrope Variable', sans-serif; } .ds-modal { width: min(100%, 480px); padding: 24px; border-radius: 16px; background: var(--cream, #fffaf0); color: var(--ink, #201411); box-shadow: 0 28px 70px rgba(15,8,5,.35); } .ds-modal header { display: flex; align-items: center; justify-content: space-between; gap: 20px; } .ds-modal h2 { margin: 0; font: 800 2rem/.98 'Bricolage Grotesque Variable', sans-serif; letter-spacing: -.03em; } .ds-modal p { color: #665148; line-height: 1.6; } .ds-modal header button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: #eadfce; color: #201411; font-size: 1.3rem; cursor: pointer; } .ds-modal-action { min-height: 52px; padding: 0 22px; border: 0; border-radius: 14px; background: #201411; color: #fff; font-weight: 800; cursor: pointer; } .ds-modal button:focus-visible { outline: 3px solid #3b63ff; outline-offset: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The House-Party Confession Deck",
+    "overview": "Chat Wrapped feels dealt across a table at a lively house party: saturated card stock, stacked 9:16 scorecards, compact stamps, unapologetically chunky type, and sharp social observations. It is playful and Nigerian-flavoured without becoming unserious; privacy language and conventional controls keep the experience trustworthy while the deck makes every result feel screenshot-worthy.\n\nThe application shell is warm paper and dark ink with a single hot action colour. Story cards are a louder world inside that shell: six complete theme sets govern every visible story colour, while directional blur and travel make navigation feel like dealing the next confession. Utility surfaces stay literal, compact, and accessible instead of imitating paper props everywhere.",
+    "keyCharacteristics": [
+      "A house-party confession deck carried through landing, setup, processing, story, paywall, customisation, and sharing.",
+      "Warm application paper, near-black brown ink, and a restrained orange action colour.",
+      "Saturated 9:16 story cards with theme-disciplined colour and oversized evidence-led typography.",
+      "Compact 12–16px corners; pills are reserved for short statuses, toggles, and segmented controls.",
+      "Directional blur and horizontal travel are the signature interaction, used only when changing story cards.",
+      "Privacy, focus visibility, ownership state, and export eligibility remain explicit at conversion points."
+    ],
+    "rules": [
+      { "name": "The Closed Theme Rule", "body": "A story slide uses only its active theme variables: background endpoints, surface, text, muted text, accent, and second accent. Application orange, pink, yellow, ink, and paper must never leak into slide content.", "section": "colors" },
+      { "name": "The Evidence Contrast Rule", "body": "Every theme must keep headlines, supporting text, and surface content readable against both gradient endpoints and its own surface colour.", "section": "colors" },
+      { "name": "The Two-Voice Rule", "body": "Use display type for the reveal and body type for the explanation. Never stack several decorative faces in one card.", "section": "typography" },
+      { "name": "The Unbroken Card Rule", "body": "Never compress, crop, or reflow the story into a non-9:16 dashboard tile. Move supporting controls below it.", "section": "layout" },
+      { "name": "The Earned Lift Rule", "body": "Reserve the strongest shadows for the proof deck, central story, modal, and drawer. Routine cards stay flatter so the artifact remains dominant.", "section": "elevation" },
+      { "name": "The Preview-Is-Not-Ownership Rule", "body": "Let people see the final style before buying, but never allow any in-app export or share path to release an unowned theme, font, or Savage treatment.", "section": "components" }
+    ],
+    "dos": [
+      "**Do** make the offer and a working-scale 9:16 proof coexist in the first desktop viewport.",
+      "**Do** preserve the 360 × 640 story composition and 1080 × 1920 export result.",
+      "**Do** use the active theme’s complete variable set for every story colour.",
+      "**Do** keep privacy and name-visibility guidance visible near upload, purchase, customisation, and sharing.",
+      "**Do** use directional blur and travel only to communicate story navigation.",
+      "**Do** preserve visible focus, Escape, focus trapping/restoration, arrow-key navigation, and reduced-motion behavior.",
+      "**Do** let locked themes, fonts, and Savage mode preview live while gating every in-app save, download, and share route until ownership."
+    ],
+    "donts": [
+      "**Don't** turn the experience into a generic SaaS hero or analytics-dashboard grid.",
+      "**Don't** leak application palette colours into theme-governed story slides.",
+      "**Don't** shrink the story card vertically to make desktop controls fit.",
+      "**Don't** use decorative motion on routine state changes; most states change directly.",
+      "**Don't** use pills as the default shape for buttons, cards, or containers.",
+      "**Don't** let a scrim click replace a labelled close control or complete keyboard behavior.",
+      "**Don't** treat a visible locked preview as purchased, including browser download fallbacks after Web Share is unavailable."
+    ]
+  }
+}

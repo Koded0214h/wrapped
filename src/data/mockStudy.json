@@ -1,0 +1,18 @@
+{
+  "chatType": "group",
+  "chatName": "CSC Final Boss 📚",
+  "range": { "start": "6 Jan 2026", "end": "30 Oct 2026" },
+  "totals": { "messages": 18742, "words": 132904, "activeDays": 247, "emojis": 3540, "busiestDay": { "date": "22 Sep", "count": 1182 } },
+  "members": [
+    { "id": "mariam", "name": "Mariam", "messages": 4980, "sharePct": 26.6, "avgReplyMins": 12, "longestSilenceHrs": 40, "starts": 148, "laughs": 430, "sorrys": 18, "nightMessages": 604, "mediaCount": 388 },
+    { "id": "dami", "name": "Dami", "messages": 3902, "sharePct": 20.8, "avgReplyMins": 22, "longestSilenceHrs": 74, "starts": 97, "laughs": 602, "sorrys": 11, "nightMessages": 718, "mediaCount": 445 },
+    { "id": "ife", "name": "Ife", "messages": 3520, "sharePct": 18.8, "avgReplyMins": 9, "longestSilenceHrs": 33, "starts": 115, "laughs": 294, "sorrys": 36, "nightMessages": 331, "mediaCount": 267 },
+    { "id": "sodiq", "name": "Sodiq", "messages": 2841, "sharePct": 15.2, "avgReplyMins": 31, "longestSilenceHrs": 96, "starts": 55, "laughs": 183, "sorrys": 8, "nightMessages": 201, "mediaCount": 509 },
+    { "id": "uche", "name": "Uche", "messages": 2210, "sharePct": 11.8, "avgReplyMins": 48, "longestSilenceHrs": 180, "starts": 39, "laughs": 122, "sorrys": 29, "nightMessages": 118, "mediaCount": 174 },
+    { "id": "bayo", "name": "Bayo", "messages": 1289, "sharePct": 6.8, "avgReplyMins": 104, "longestSilenceHrs": 490, "starts": 14, "laughs": 59, "sorrys": 4, "nightMessages": 44, "mediaCount": 52 }
+  ],
+  "nightOwl": { "peakHour": 1, "topMemberId": "dami", "nightMessageCount": 718 },
+  "topWords": [{ "word": "assignment", "count": 992 }, { "word": "deadline", "count": 734 }, { "word": "lecturer", "count": 661 }, { "word": "please", "count": 604 }, { "word": "submission", "count": 482 }],
+  "verdict": { "title": "Study Group Under Duress", "blurb": "Academically focused for twelve minutes at a time, then back to memes and deadline panic." },
+  "sourceKind": "study"
+}
