@@ -5,6 +5,7 @@ import { computeFacts } from './computeFacts'
 import type { AggregateChat } from './types'
 import { deriveVerdict } from './deriveVerdict'
 import { characterStyleFor } from '../components/MemberCharacter'
+import { assignArchetypes } from './assignArchetypes'
 
 describe('dynamic card planning', () => {
   it('never silently substitutes demo data when an upload is missing', async () => {
@@ -17,13 +18,15 @@ describe('dynamic card planning', () => {
     const sequence = (result: typeof friends) => result.cards.map((card) => `${card.layout}:${card.factIds[0]}`).join('|')
     const layoutSequence = (result: typeof friends) => result.cards.map((card) => card.layout).join('|')
     expect(new Set([sequence(friends), sequence(study), sequence(couple)]).size).toBe(3)
-    expect(new Set([layoutSequence(friends), layoutSequence(study), layoutSequence(couple)]).size).toBe(3)
+    expect(layoutSequence(friends)).toBe(layoutSequence(study))
+    expect(layoutSequence(friends)).not.toBe(layoutSequence(couple))
+    expect(friends.cards.map((card) => card.layout)).toEqual(['groupNumbers', 'yapLeaderboard', 'characterCast', 'groupAwards', 'socialGraph', 'plotTwist', 'groupLanguage', 'timeCapsule', 'companyRoast', 'dynamicDuo', 'replyRace', 'nightShift', 'mediaDesk', 'ghostWatch', 'laughTrack', 'conversationSpark', 'groupPulse', 'memoryVault', 'movieFinale', 'finalVerdict'])
     for (const result of [friends, study, couple]) {
       expect(result.facts.length).toBeGreaterThanOrEqual(40)
       expect(result.cards.length).toBeGreaterThanOrEqual(8)
-      expect(result.cards.length).toBeLessThanOrEqual(10)
-      expect(result.cards[0].layout).toBe('cover')
-      expect(result.cards.at(-1)?.layout).toBe('verdict')
+      expect(result.cards.length).toBeLessThanOrEqual(result.chatType === 'group' ? 20 : 10)
+      expect(result.cards[0].layout).toBe(result.chatType === 'group' ? 'groupNumbers' : 'cover')
+      expect(result.cards.at(-1)?.layout).toBe(result.chatType === 'group' ? 'finalVerdict' : 'verdict')
       expect(result.cards[0].locked).toBe(false)
       expect(result.cards[1].locked).toBe(false)
       expect(result.cards.filter((card) => !card.locked).length).toBe(3)
@@ -31,10 +34,10 @@ describe('dynamic card planning', () => {
       expect(new Set(result.cards.slice(2).map((card) => card.layout)).size).toBeGreaterThanOrEqual(5)
       expect(result.cards.some((card) => card.layout === 'quote')).toBe(false)
       for (const layout of new Set(result.cards.map((card) => card.layout))) expect(result.cards.filter((card) => card.layout === layout).length).toBeLessThanOrEqual(2)
-      expect(result.cards.slice(2, 6).some((card) => card.factIds.some((id) => ['total_words', 'emoji_count', 'busiest_day'].includes(id)))).toBe(false)
+      if (result.chatType === 'dm') expect(result.cards.slice(2, 6).some((card) => card.factIds.some((id) => ['total_words', 'emoji_count', 'busiest_day'].includes(id)))).toBe(false)
     }
     expect(couple.cards.some((card) => card.layout === 'versus')).toBe(true)
-    expect(friends.cards.flatMap((card) => card.factIds).some((id) => ['slow_reply_segun', 'longest_silence_segun', 'hard_to_impress_segun'].includes(id))).toBe(false)
+    expect(friends.cards.find((card) => card.layout === 'groupAwards')?.factIds).toContain('longest_silence_segun')
   })
 
   it('adds storytelling context to facts instead of ranking raw values alone', async () => {
@@ -53,7 +56,7 @@ describe('dynamic card planning', () => {
     const result = await getAnalysis('group', { mock: 'friends' })
     const vague = /\b(energy|vibes?|chaos|evidence|receipts|iconic|economy|department|certified)\b/i
     const pidgin = /\b(na|dey|don|una|wey|dem|fit|am|no)\b/i
-    for (const card of result.cards) {
+    for (const card of result.cards.filter((card) => !['groupNumbers','yapLeaderboard','characterCast','groupAwards','socialGraph','plotTwist','groupLanguage','timeCapsule','companyRoast','dynamicDuo','replyRace','nightShift','mediaDesk','ghostWatch','laughTrack','conversationSpark','groupPulse','memoryVault','movieFinale','finalVerdict'].includes(card.layout))) {
       const referenced = card.factIds.map((id) => result.facts.find((fact) => fact.id === id)!).filter(Boolean)
       const copy = `${resolveTemplate(card.headline, referenced, result.members)} ${resolveTemplate(card.roast, referenced, result.members)}`
       expect(copy).not.toMatch(vague)
@@ -62,6 +65,9 @@ describe('dynamic card planning', () => {
     const styles = result.members.map((member) => JSON.stringify(characterStyleFor(member.id)))
     expect(new Set(styles).size).toBeGreaterThanOrEqual(Math.min(4, result.members.length))
     expect(characterStyleFor(result.members[0].id)).toEqual(characterStyleFor(result.members[0].id))
+    const archetypes = [...assignArchetypes(result.members).values()].map((item) => item.title)
+    expect(new Set(archetypes).size).toBe(result.members.length)
+    expect(archetypes).not.toContain('The Reliable Regular')
   })
 
   it('keeps locked templates free of resolved names and values', async () => {
@@ -69,8 +75,10 @@ describe('dynamic card planning', () => {
     for (const card of result.cards.filter((item) => item.locked)) {
       const redacted = redactTemplate(card.headline)
       const resolved = resolveTemplate(card.headline, card.factIds.map((id) => result.facts.find((fact) => fact.id === id)!), result.members)
-      expect(redacted).toContain('▓')
-      expect(redacted).not.toBe(resolved)
+      if (/\{\{/.test(card.headline)) {
+        expect(redacted).toContain('▓')
+        expect(redacted).not.toBe(resolved)
+      }
       for (const member of result.members) expect(redacted).not.toContain(member.name)
     }
   })

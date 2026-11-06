@@ -33,6 +33,15 @@ const metricSpecs: MetricSpec[] = [
   { kind: 'starter_share', high: true, detail: 'percent of fresh gist wey dem start', humourScore: 87, visualScore: 86, value: (member, chat) => percent(member.starts, chat.members.reduce((sum, item) => sum + item.starts, 0)) },
   { kind: 'laugh_rate', high: true, detail: 'laughs for every hundred messages', humourScore: 89, visualScore: 86, value: (member) => round(member.laughs / Math.max(1, member.messages) * 100, 1) },
   { kind: 'media_rate', high: true, detail: 'media for every hundred messages', humourScore: 80, visualScore: 83, value: (member) => round(member.mediaCount / Math.max(1, member.messages) * 100, 1) }
+  ,{ kind: 'member_words', high: true, detail: 'actual words typed', humourScore: 90, visualScore: 97, value: (member) => member.words ?? 0 }
+  ,{ kind: 'avg_message_words', high: true, detail: 'words per message', humourScore: 88, visualScore: 92, value: (member) => member.avgMessageWords ?? round((member.words ?? 0) / Math.max(1, member.messages), 1) }
+  ,{ kind: 'replies_received', high: true, detail: 'replies pulled from the group', humourScore: 82, visualScore: 96, value: (member) => member.repliesReceived ?? 0 }
+  ,{ kind: 'conversation_continuations', high: true, detail: 'follow-up messages that kept the chat moving', humourScore: 78, visualScore: 90, value: (member) => member.continuations ?? 0 }
+  ,{ kind: 'link_count', high: true, detail: 'links shared', humourScore: 84, visualScore: 86, value: (member) => member.linkCount ?? 0 }
+  ,{ kind: 'voice_notes', high: true, detail: 'voice notes sent', humourScore: 92, visualScore: 90, value: (member) => member.voiceNotes ?? 0 }
+  ,{ kind: 'money_mentions', high: true, detail: 'money mentions', humourScore: 87, visualScore: 82, value: (member) => member.moneyMentions ?? 0 }
+  ,{ kind: 'location_questions', high: true, detail: 'location checks', humourScore: 88, visualScore: 84, value: (member) => member.locationQuestions ?? 0 }
+  ,{ kind: 'long_explanations', high: true, detail: 'messages longer than thirty-five words', humourScore: 91, visualScore: 88, value: (member) => member.explanationCount ?? 0 }
 ]
 
 function contextFor(values: number[], memberIndex: number, spec: MetricSpec, confidence: number): FactContext {
@@ -69,6 +78,9 @@ export function computeFacts(chat: AggregateChat): Fact[] {
     { id: 'date_range', kind: 'date_range', memberIds: [], value: `${chat.range.start} — ${chat.range.end}`, surpriseScore: 0 },
     { id: 'total_messages', kind: 'total_messages', memberIds: [], value: chat.totals.messages, detail: 'messages', surpriseScore: 58, context: { confidence: 100, humourScore: 58, visualScore: 88 } },
     { id: 'total_words', kind: 'total_words', memberIds: [], value: chat.totals.words, detail: 'words wey una type', surpriseScore: 45, context: { confidence: 100, humourScore: 52, visualScore: 76 } },
+    { id: 'total_members', kind: 'total_members', memberIds: [], value: chat.members.length, detail: 'active members', surpriseScore: 50, context: { confidence: 100, humourScore: 64, visualScore: 82 } },
+    { id: 'media_count', kind: 'media_count', memberIds: [], value: chat.members.reduce((sum, member) => sum + member.mediaCount, 0), detail: 'media shared', surpriseScore: 52, context: { confidence: 100, humourScore: 72, visualScore: 84 } },
+    { id: 'avg_messages_day', kind: 'avg_messages_day', memberIds: [], value: round(chat.totals.messages / Math.max(1, chat.totals.activeDays), 1), detail: 'messages per active day', surpriseScore: 56, context: { confidence: 100, humourScore: 76, visualScore: 88 } },
     { id: 'active_days', kind: 'active_days', memberIds: [], value: chat.totals.activeDays, detail: 'days wey chat active', surpriseScore: 42, context: { confidence: 100, humourScore: 50, visualScore: 70 } },
     { id: 'emoji_count', kind: 'emoji_count', memberIds: [], value: chat.totals.emojis, detail: 'emojis', surpriseScore: 48, context: { confidence: 100, humourScore: 70, visualScore: 76 } },
     { id: 'busiest_day', kind: 'busiest_day', memberIds: [], value: chat.totals.busiestDay.count, detail: chat.totals.busiestDay.date, surpriseScore: 72, context: { confidence: 100, humourScore: 82, visualScore: 90 } }
@@ -119,6 +131,21 @@ export function computeFacts(chat: AggregateChat): Fact[] {
     })
   })
 
+  ;(chat.topEmojis ?? []).forEach((item, index) => facts.push({
+    id: `emoji_${index}`, kind: 'top_emoji', memberIds: [], value: item.count, detail: item.emoji,
+    surpriseScore: Math.max(45, 82 - index * 6),
+    context: { rank: index + 1, outOf: chat.topEmojis?.length ?? 0, confidence: 100, humourScore: 84, visualScore: 94 }
+  }))
+  if (chat.longestConversation) facts.push({
+    id: 'longest_conversation', kind: 'longest_conversation', memberIds: [], value: chat.longestConversation.count,
+    detail: `${chat.longestConversation.date} · ${chat.longestConversation.durationMins} minutes`, surpriseScore: 78,
+    context: { confidence: 100, humourScore: 80, visualScore: 96 }
+  })
+  if (chat.mediaPeak) facts.push({
+    id: 'media_peak', kind: 'media_peak', memberIds: [], value: chat.mediaPeak.count,
+    detail: chat.mediaPeak.date, surpriseScore: 68, context: { confidence: 100, humourScore: 76, visualScore: 90 }
+  })
+
   const verdictIsPlaceholder = chat.verdict && (/^the final verdict is in/i.test(chat.verdict.title) || /smaller, honest deck/i.test(chat.verdict.blurb))
   if (chat.verdict && !verdictIsPlaceholder) facts.push({ id: 'verdict', kind: 'verdict', memberIds: [], value: chat.verdict.title, detail: chat.verdict.blurb, surpriseScore: 54, context: { confidence: 90, humourScore: 86, visualScore: 92 } })
 
@@ -129,7 +156,7 @@ export function computeFacts(chat: AggregateChat): Fact[] {
     upload: ['message_share', 'night_share', 'conversation_starts', 'longest_silence', 'repeated_phrase']
   }
   const boosted = facts.map((fact) => ({ ...fact, surpriseScore: Math.min(99, fact.surpriseScore + ((boosts[chat.sourceKind ?? 'upload'] ?? []).includes(fact.kind) ? 8 : 0)) }))
-  const required = new Set(['chat_label', 'date_range', 'total_messages', 'total_words', 'active_days', 'emoji_count', 'busiest_day', 'verdict', 'thin_stats'])
+  const required = new Set(['chat_label', 'date_range', 'total_messages', 'total_words', 'total_members', 'media_count', 'avg_messages_day', 'active_days', 'emoji_count', 'top_emoji', 'repeated_phrase', 'busiest_day', 'longest_conversation', 'media_peak', 'verdict', 'thin_stats'])
   const base = boosted.filter((fact) => required.has(fact.kind))
   const candidates = boosted.filter((fact) => !required.has(fact.kind)).sort((a, b) => b.surpriseScore - a.surpriseScore)
   return [...base, ...candidates.slice(0, 60 - base.length)]

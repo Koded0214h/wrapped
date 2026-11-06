@@ -2,6 +2,7 @@ import type { AnalysisResult, Card } from './types'
 import { getSessionId } from '../lib/telemetry'
 
 export async function planAnalysisWithAi(analysis: AnalysisResult): Promise<AnalysisResult> {
+  if (analysis.chatType === 'group') return analysis
   const response = await fetch('/api/cards/plan', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

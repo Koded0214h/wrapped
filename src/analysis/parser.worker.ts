@@ -79,33 +79,60 @@ function parseLines(text: string) {
 function aggregate(parsed: ReturnType<typeof parseLines>): AggregateChat {
   const { messages, diagnostics } = parsed
   if (messages.length < 10) fail('P-102', `Only ${messages.length} messages were readable. This export is too short to build an honest story.`)
-  const memberMap = new Map<string, Member & { replyTotal: number; replyCount: number; lastTs: number }>()
+  const memberMap = new Map<string, Member & { replyTotal: number; lastTs: number }>()
   const days = new Map<string, number>()
+  const mediaDays = new Map<string, number>()
   const words = new Map<string, number>()
+  const emojiCounts = new Map<string, number>()
+  const sessions: { date: string; count: number; start: number; end: number }[] = []
+  let currentSession: { date: string; count: number; start: number; end: number } | undefined
   let wordCount = 0, emojis = 0, mediaOmitted = 0
   messages.forEach((message, index) => {
     const id = `m_${Array.from(memberMap.keys()).indexOf(message.sender) + 1 || memberMap.size + 1}`
-    const member = memberMap.get(message.sender) ?? { id, name: message.sender, messages: 0, sharePct: 0, avgReplyMins: 0, longestSilenceHrs: 0, starts: 0, laughs: 0, sorrys: 0, nightMessages: 0, mediaCount: 0, replyTotal: 0, replyCount: 0, lastTs: message.ts }
+    const member = memberMap.get(message.sender) ?? { id, name: message.sender, messages: 0, sharePct: 0, avgReplyMins: 0, longestSilenceHrs: 0, starts: 0, laughs: 0, sorrys: 0, nightMessages: 0, mediaCount: 0, words: 0, avgMessageWords: 0, repliesReceived: 0, replyCount: 0, continuations: 0, linkCount: 0, voiceNotes: 0, moneyMentions: 0, locationQuestions: 0, explanationCount: 0, replyTotal: 0, lastTs: message.ts }
     member.messages++
     member.laughs += (message.text.match(laughPattern) ?? []).length
     member.sorrys += (message.text.match(/\b(sorry|my bad)\b/gi) ?? []).length
     if (message.hour < 5) member.nightMessages++
     const messageText = normalizeExportText(message.text)
     const isPlaceholder = isExportPlaceholder(messageText)
-    if (isPlaceholder) { member.mediaCount++; mediaOmitted++ }
+    if (isPlaceholder) {
+      member.mediaCount++; mediaOmitted++
+      mediaDays.set(message.dateKey, (mediaDays.get(message.dateKey) ?? 0) + 1)
+      if (/audio|voice/i.test(messageText)) member.voiceNotes = (member.voiceNotes ?? 0) + 1
+    }
+    member.linkCount = (member.linkCount ?? 0) + (messageText.match(/https?:\/\/|www\./gi) ?? []).length
+    member.moneyMentions = (member.moneyMentions ?? 0) + (messageText.match(/\b(money|cash|price|cost|pay|paid|payment|debt|budget|naira)\b|[₦$£€]\s?\d/gi) ?? []).length
+    member.locationQuestions = (member.locationQuestions ?? 0) + (messageText.match(/\b(where (are|is|you)|where you dey|location|send (your )?location|how far)\b/gi) ?? []).length
+    if ((messageText.match(/[\p{L}']+/gu) ?? []).length >= 35) member.explanationCount = (member.explanationCount ?? 0) + 1
     member.longestSilenceHrs = Math.max(member.longestSilenceHrs, Math.round((message.ts - member.lastTs) / 3600000))
     member.lastTs = message.ts
     const previous = messages[index - 1]
     if (!previous || message.ts - previous.ts >= 6 * 3600000) member.starts++
+    if (!currentSession || !previous || message.ts - previous.ts >= 6 * 3600000) {
+      currentSession = { date: message.dateKey, count: 1, start: message.ts, end: message.ts }
+      sessions.push(currentSession)
+    } else {
+      currentSession.count++
+      currentSession.end = message.ts
+    }
     if (previous && previous.sender !== message.sender) {
       const gap = Math.min(360, Math.max(0, (message.ts - previous.ts) / 60000))
-      member.replyTotal += gap; member.replyCount++
+      member.replyTotal += gap; member.replyCount = (member.replyCount ?? 0) + 1
+      const previousMember = memberMap.get(previous.sender)
+      if (previousMember) previousMember.repliesReceived = (previousMember.repliesReceived ?? 0) + 1
+    } else if (previous && previous.sender === message.sender && message.ts - previous.ts < 15 * 60000) {
+      member.continuations = (member.continuations ?? 0) + 1
     }
     memberMap.set(message.sender, member)
     days.set(message.dateKey, (days.get(message.dateKey) ?? 0) + 1)
-    emojis += (messageText.match(emojiPattern) ?? []).length
-    for (const word of (isPlaceholder ? '' : messageText).toLowerCase().match(/[\p{L}']{3,}/gu) ?? []) {
-      wordCount++
+    const messageEmojis = messageText.match(emojiPattern) ?? []
+    emojis += messageEmojis.length
+    messageEmojis.forEach((emoji) => emojiCounts.set(emoji, (emojiCounts.get(emoji) ?? 0) + 1))
+    const messageWords = (isPlaceholder ? '' : messageText).toLowerCase().match(/[\p{L}']+/gu) ?? []
+    member.words = (member.words ?? 0) + messageWords.length
+    wordCount += messageWords.length
+    for (const word of messageWords.filter((word) => word.length >= 3)) {
       if (!stopWords.has(word) && !vocabularyArtifactWords.has(word) && !systemLine.test(word)) words.set(word, (words.get(word) ?? 0) + 1)
     }
   })
@@ -114,10 +141,13 @@ function aggregate(parsed: ReturnType<typeof parseLines>): AggregateChat {
   const latinLetters = sampledText.match(/\p{Script=Latin}/gu)?.length ?? 0
   diagnostics.mediaPct = Math.round(mediaOmitted / Math.max(1, messages.length) * 1000) / 10
   diagnostics.languageHint = letters === 0 ? 'unknown' : latinLetters / letters > .8 ? 'latin' : latinLetters / letters < .4 ? 'mostly-non-latin' : 'mixed'
-  const members = Array.from(memberMap.values()).map(({ replyTotal, replyCount, lastTs: _lastTs, ...member }) => ({ ...member, sharePct: Math.round(member.messages / messages.length * 1000) / 10, avgReplyMins: Math.round(replyTotal / Math.max(1, replyCount)) }))
+  const members = Array.from(memberMap.values()).map(({ replyTotal, lastTs: _lastTs, ...member }) => ({ ...member, sharePct: Math.round(member.messages / messages.length * 1000) / 10, avgReplyMins: Math.round(replyTotal / Math.max(1, member.replyCount ?? 0)), avgMessageWords: Math.round((member.words ?? 0) / Math.max(1, member.messages) * 10) / 10 }))
   const busiest = [...days.entries()].sort((a, b) => b[1] - a[1])[0]
   const memberNameWords = new Set(Array.from(memberMap.keys()).flatMap((name) => normalizeExportText(name).toLowerCase().match(/[\p{L}']{3,}/gu) ?? []))
   const topWords = [...words.entries()].filter(([word]) => !memberNameWords.has(word)).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([word, count]) => ({ word, count }))
+  const topEmojis = [...emojiCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([emoji, count]) => ({ emoji, count }))
+  const longest = [...sessions].sort((a, b) => b.count - a.count)[0]
+  const mediaPeak = [...mediaDays.entries()].sort((a, b) => b[1] - a[1])[0]
   const first = new Date(messages[0].ts), last = new Date(messages.at(-1)!.ts)
   const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
   postMessage({ type: 'progress', progress: { percent: 90, processed: messages.length, total: messages.length, label: 'Computing facts' } })
@@ -125,7 +155,10 @@ function aggregate(parsed: ReturnType<typeof parseLines>): AggregateChat {
     chatType: members.length > 2 ? 'group' : 'dm', chatName: members.length > 2 ? 'Your group chat' : 'Your chat',
     range: { start: dateFormat.format(first), end: dateFormat.format(last) },
     totals: { messages: messages.length, words: wordCount, activeDays: days.size, emojis, busiestDay: { date: busiest?.[0] ?? '', count: busiest?.[1] ?? 0 } },
-    members, topWords, sourceKind: 'upload', thinStats: messages.length < 200 || diagnostics.mediaPct > 70,
+    members, topWords, topEmojis,
+    longestConversation: longest ? { date: longest.date, count: longest.count, durationMins: Math.max(1, Math.round((longest.end - longest.start) / 60000)) } : undefined,
+    mediaPeak: mediaPeak ? { date: mediaPeak[0], count: mediaPeak[1] } : undefined,
+    sourceKind: 'upload', thinStats: messages.length < 200 || diagnostics.mediaPct > 70,
     verdict: deriveVerdict(members, messages.length)
   }
 }

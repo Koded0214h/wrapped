@@ -17,6 +17,16 @@ import { appConfig, privacyCopy } from '../config/appConfig'
 import { brand } from '../config/brand'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
 
+const cardLabels: Partial<Record<Card['layout'], string>> = {
+  groupNumbers: 'The group in numbers', yapLeaderboard: 'The yap leaderboard', characterCast: 'Everyone has a character',
+  groupAwards: 'The group chat awards', socialGraph: 'Who runs this group?', plotTwist: 'The biggest plot twist',
+  groupLanguage: "The group's language", timeCapsule: 'The moments that defined us', companyRoast: 'If this group were a company',
+  dynamicDuo: 'The dynamic duo', replyRace: 'The reply race', nightShift: 'The night shift', mediaDesk: 'The media department',
+  ghostWatch: 'The vanishing act', laughTrack: 'The laugh track', conversationSpark: 'Who keeps pressing start?',
+  groupPulse: 'The group pulse', memoryVault: 'The memory vault', movieFinale: 'Our group chat: the movie', finalVerdict: 'The final verdict'
+}
+const cardLabel = (layout: Card['layout']) => cardLabels[layout] ?? layout.replace(/([A-Z])/g, ' $1')
+
 function bonusCards(base: Card[], factIds: string[]): Card[] {
   return [...base,
     { id: 'bonus_quick_draw', layout: 'award', factIds: factIds.slice(0, 1), headline: '{{member:self}} collect Sharp Reply Award.', roast: 'Notification never settle, reply don land.', savageRoast: 'This phone no dey leave notification unanswered.', locked: false },
@@ -36,12 +46,13 @@ export function Story() {
   const pointer = useRef<number | null>(null)
   const aiAttemptedFor = useRef<typeof analysis>(null)
   const exportRefs = useRef<(HTMLDivElement | null)[]>([])
+  const frameRef = useRef<HTMLDivElement | null>(null)
   const currentTheme = getTheme(theme)
   const currentFont = fonts.find((item) => item.id === font) ?? fonts[0]
   const accessUnlocked = appConfig.freeAccess || unlocked
   const has = useCallback((item: Purchase) => appConfig.freeAccess ? item !== 'watermark' : owned.includes(item) || owned.includes('everything'), [owned])
   const bonusFactIds = analysis?.facts.filter((fact) => ['fast_reply','media_dropper'].includes(fact.kind)).slice(0,2).map((fact)=>fact.id) ?? []
-  const cards = useMemo(() => analysis ? (has('awards') && bonusFactIds.length === 2 ? bonusCards(analysis.cards, bonusFactIds) : analysis.cards) : [], [analysis, bonusFactIds.join('|'), has])
+  const cards = useMemo(() => analysis ? (analysis.chatType !== 'group' && has('awards') && bonusFactIds.length === 2 ? bonusCards(analysis.cards, bonusFactIds) : analysis.cards) : [], [analysis, bonusFactIds.join('|'), has])
   const totalCards = cards.length
   const currentCard = cards[index]
   const lockedThemePreview = !currentTheme.free && !has('theme')
@@ -129,20 +140,35 @@ export function Story() {
     } finally { setSharing('') }
   }
 
+  const tiltCard = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'touch' || !frameRef.current) return
+    const bounds = frameRef.current.getBoundingClientRect()
+    const x = (event.clientX - bounds.left) / bounds.width - .5
+    const y = (event.clientY - bounds.top) / bounds.height - .5
+    frameRef.current.style.setProperty('--tilt-x', `${-y * 7}deg`)
+    frameRef.current.style.setProperty('--tilt-y', `${x * 9}deg`)
+    frameRef.current.style.setProperty('--shine-x', `${(x + .5) * 100}%`)
+    frameRef.current.style.setProperty('--shine-y', `${(y + .5) * 100}%`)
+  }
+  const resetTilt = () => {
+    frameRef.current?.style.setProperty('--tilt-x', '0deg')
+    frameRef.current?.style.setProperty('--tilt-y', '0deg')
+  }
+
   const renderedCard = isLocked
-    ? <div className="locked-card"><div className="slide__topline"><span>{currentCard.layout.replace(/([A-Z])/g,' $1')}</span><LockKeyhole /></div><h2>{redactTemplate(currentCard.headline)}</h2><p>Pay first make names and numbers show for this card.</p></div>
+    ? <div className="locked-card"><div className="slide__topline"><span>{cardLabel(currentCard.layout)}</span><LockKeyhole /></div><h2>{redactTemplate(currentCard.headline)}</h2><p>Pay first make names and numbers show for this card.</p></div>
     : <CardRenderer card={currentCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />
 
   return <main className={`story-page ${accessUnlocked ? 'is-unlocked' : 'is-preview'}`}>
     {!accessUnlocked && captureShield && <div className="capture-shield" role="alert"><LockKeyhole /><strong>Preview protected</strong><span>Unlock before saving or sharing this story.</span></div>}
     <nav className="story-nav"><Brand /><div><button onClick={() => setAutoAdvance(!autoAdvance)}>{autoAdvance ? <Pause /> : <Play />} {autoAdvance ? 'Pause' : 'Auto-play'}</button><button onClick={() => setCustomise(true)}><Settings2 /> Customise</button><button className="story-nav__close" onClick={() => setStep('landing')} aria-label="Close story"><X /></button></div></nav>
     <section className="story-layout">
-      <div className="story-meta"><span>Your Chat Wrapped</span><h1>{currentCard.layout.replace(/([A-Z])/g,' $1')}</h1><p>{index + 1} of {totalCards}</p><div className="story-meta__privacy"><EyeOff /><span>{hideNames ? 'Names are hidden' : 'Names are visible'}<small>Use Customise before sharing.</small></span></div></div>
+      <div className="story-meta"><span>Your Chat Wrapped</span><h1>{cardLabel(currentCard.layout)}</h1><p>{index + 1} of {totalCards}</p><div className="story-meta__privacy"><EyeOff /><span>{hideNames ? 'Names are hidden' : 'Names are visible'}<small>Use Customise before sharing.</small></span></div></div>
       <div className="story-stage">
         <div className="story-progress">{cards.map((card, i) => <button key={card.id} onClick={() => go(i)} aria-label={`Go to card ${i + 1}`}><i className={i <= index ? 'is-filled' : ''}>{i === index && autoAdvance && <motion.em initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 6, ease: 'linear' }} />}</i></button>)}</div>
-        <div className="story-frame-wrap">
+        <div className="story-frame-wrap" onPointerMove={tiltCard} onPointerLeave={resetTilt}>
           <button className="tap-zone tap-zone--left" onClick={() => go(index - 1)} aria-label="Previous card" />
-          <div className="story-frame" style={style} onPointerDown={(e) => { pointer.current = e.clientX }} onPointerUp={(e) => { if (pointer.current !== null && Math.abs(e.clientX - pointer.current) > 45) go(index + (e.clientX < pointer.current ? 1 : -1)); pointer.current = null }} onPointerCancel={() => { pointer.current = null }}>
+          <div ref={frameRef} className="story-frame" style={style} onPointerDown={(e) => { pointer.current = e.clientX }} onPointerUp={(e) => { if (pointer.current !== null && Math.abs(e.clientX - pointer.current) > 45) go(index + (e.clientX < pointer.current ? 1 : -1)); pointer.current = null }} onPointerCancel={() => { pointer.current = null }}>
             {isLocked ? <div key={currentCard.id} className="story-content">{renderedCard}</div> : <AnimatePresence custom={direction} mode="popLayout"><motion.div key={currentCard.id} custom={direction} variants={{ enter: (d: number) => ({ x: d * 60, opacity: 0, filter: 'blur(8px)' }), center: { x: 0, opacity: 1, filter: 'blur(0px)' }, exit: (d: number) => ({ x: d * -60, opacity: 0, filter: 'blur(8px)' }) }} initial="enter" animate="center" exit="exit" transition={{ duration: .38, ease: [0.16, 1, 0.3, 1] }} className="story-content">{renderedCard}</motion.div></AnimatePresence>}
             {isLocked && <div className="paywall paywall--safe"><div className="paywall__lock"><LockKeyhole /></div><h2>The real reveal stays sealed.</h2><p>No locked names or values are rendered until purchase.</p><Button wide onClick={() => setCheckout('core')}>Unlock this story · $1.99</Button><small><LockKeyhole /> {privacyCopy.paywall}</small></div>}
           </div>

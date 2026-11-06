@@ -12,9 +12,23 @@ export type Member = {
   sorrys: number
   nightMessages: number
   mediaCount: number
+  words?: number
+  avgMessageWords?: number
+  repliesReceived?: number
+  replyCount?: number
+  continuations?: number
+  linkCount?: number
+  voiceNotes?: number
+  moneyMentions?: number
+  locationQuestions?: number
+  explanationCount?: number
 }
 
 export type LayoutType = 'bigNumber' | 'leaderboard' | 'versus' | 'quote' | 'timeline' | 'award' | 'wordCloud' | 'heatmap' | 'verdict' | 'cover'
+  | 'groupNumbers' | 'yapLeaderboard' | 'characterCast' | 'groupAwards' | 'socialGraph'
+  | 'plotTwist' | 'groupLanguage' | 'timeCapsule' | 'companyRoast' | 'dynamicDuo'
+  | 'replyRace' | 'nightShift' | 'mediaDesk' | 'ghostWatch' | 'laughTrack' | 'conversationSpark'
+  | 'groupPulse' | 'memoryVault' | 'movieFinale' | 'finalVerdict'
 
 export type FactContext = {
   rank?: number
@@ -71,6 +85,9 @@ export type AggregateChat = Omit<AnalysisResult, 'facts' | 'cards'> & {
   nightOwl?: { peakHour: number; topMemberId: string; nightMessageCount: number }
   naija?: { abeg: number; wahala: number; omo: number; nawa: number; sha: number }
   topWords?: { word: string; count: number }[]
+  topEmojis?: { emoji: string; count: number }[]
+  longestConversation?: { date: string; count: number; durationMins: number }
+  mediaPeak?: { date: string; count: number }
   verdict?: { title: string; blurb: string }
   sourceKind?: 'friends' | 'study' | 'couple' | 'upload'
   thinStats?: boolean

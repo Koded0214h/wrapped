@@ -118,7 +118,8 @@ function cardFromCandidate(candidate: Candidate): Card {
   return { id: `card_${candidate.primary.id}`, layout: candidate.layout, factIds: candidate.facts.map((fact) => fact.id), headline: spec.headline, roast: spec.roast, savageRoast: spec.savage, locked: true }
 }
 
-export function planCards(facts: Fact[], options: { maxCards?: number } = {}): Card[] {
+export function planCards(facts: Fact[], options: { maxCards?: number; chatType?: 'group' | 'dm' } = {}): Card[] {
+  if (options.chatType === 'group') return planGroupCards(facts)
   const safe = facts.filter((fact) => !blockedKinds.has(fact.kind))
   const thin = facts.some((fact) => fact.kind === 'thin_stats')
   const verdict = safe.find((fact) => fact.kind === 'verdict')
@@ -143,6 +144,60 @@ export function planCards(facts: Fact[], options: { maxCards?: number } = {}): C
   return [cover, ...storyCards, ...closing].slice(0, maxCards)
 }
 
+const groupLayouts = new Set<LayoutType>(['groupNumbers', 'yapLeaderboard', 'characterCast', 'groupAwards', 'socialGraph', 'plotTwist', 'groupLanguage', 'timeCapsule', 'companyRoast', 'dynamicDuo', 'replyRace', 'nightShift', 'mediaDesk', 'ghostWatch', 'laughTrack', 'conversationSpark', 'groupPulse', 'memoryVault', 'movieFinale', 'finalVerdict'])
+
+function factsOf(facts: Fact[], kinds: string[], limit = Infinity) {
+  return facts.filter((fact) => kinds.includes(fact.kind)).sort((a, b) => (a.context?.rank ?? 99) - (b.context?.rank ?? 99) || b.surpriseScore - a.surpriseScore).slice(0, limit)
+}
+
+function plotTwistCopy(fact?: Fact) {
+  if (!fact) return { headline: 'The group gets busiest when normal people are sleeping.', roast: 'The timestamps made the allegation. We only arranged the slide.' }
+  const copy: Record<string, [string, string]> = {
+    night_share: ['{{member:self}} saves {{value:self}}% of their messages for after midnight.', 'The group has a night shift. Nobody submitted an application.'],
+    night_activity: ['{{member:self}} sent {{value:self}} messages after midnight.', 'Apparently sleep was only a suggestion.'],
+    starter_share: ['{{member:self}} starts {{value:self}}% of the fresh conversations.', 'Take this person away and the chat may need jumper cables.'],
+    media_rate: ['{{member:self}} sends {{value:self}} media drops per hundred messages.', 'Typing is clearly the backup plan.'],
+    avg_message_words: ['{{member:self}} averages {{value:self}} words every time they press send.', 'Not a message. A keynote address.'],
+    replies_received: ['{{member:self}} pulled {{value:self}} replies from everybody else.', 'Not the loudest person. Still somehow the gravitational centre.'],
+    longest_silence: ['{{member:self}} vanished for {{value:self}} hours, then returned.', 'No statement. No press conference. Just another message.']
+  }
+  const selected = copy[fact.kind] ?? ['{{member:self}} broke the group average by a suspicious margin.', '{{value:self}} is the number. The rest of us are still processing it.']
+  return { headline: selected[0], roast: selected[1] }
+}
+
+export function planGroupCards(facts: Fact[]): Card[] {
+  const ids = (items: Fact[]) => items.map((fact) => fact.id)
+  const top = (kind: string) => factsOf(facts, [kind], 1)[0]
+  const memberEvidence = facts.filter((fact) => fact.memberIds.length > 0)
+  const plot = [...memberEvidence]
+    .filter((fact) => ['night_share', 'night_activity', 'starter_share', 'media_rate', 'avg_message_words', 'replies_received', 'longest_silence'].includes(fact.kind))
+    .sort((a, b) => (b.context?.magnitude === 'wild' ? 18 : b.context?.magnitude === 'clear' ? 8 : 0) + b.surpriseScore - ((a.context?.magnitude === 'wild' ? 18 : a.context?.magnitude === 'clear' ? 8 : 0) + a.surpriseScore))[0]
+  const plotCopy = plotTwistCopy(plot)
+  const cards: Card[] = [
+    { id: 'group_01_numbers', layout: 'groupNumbers', factIds: ['chat_label', 'date_range', 'total_messages', 'total_members', 'total_words', 'media_count', 'avg_messages_day'].filter((id) => facts.some((fact) => fact.id === id)), headline: 'You people sent {{value:total_messages}} messages. Please seek help.', roast: 'A completely normal amount of communication, if nobody asks questions.', locked: false },
+    { id: 'group_02_yap', layout: 'yapLeaderboard', factIds: ids(factsOf(facts, ['member_messages', 'member_words', 'avg_message_words'])), headline: 'The Yap Leaderboard', roast: 'Message count is volume. Word count is commitment. We checked both.', locked: false },
+    { id: 'group_03_characters', layout: 'characterCast', factIds: ids(memberEvidence.filter((fact) => ['member_messages', 'fast_reply', 'night_activity', 'media_dropper', 'conversation_starts', 'voice_notes', 'avg_message_words'].includes(fact.kind))), headline: 'Everyone has a character', roast: 'Behaviour became casting. Nobody auditioned.', locked: false },
+    { id: 'group_04_awards', layout: 'groupAwards', factIds: ids([top('longest_silence'), top('slow_reply'), top('conversation_starts'), top('long_explanations'), top('avg_message_words')].filter(Boolean) as Fact[]), headline: 'The Group Chat Awards', roast: 'The nominations came from the data. The final mess belongs to the voters.', locked: true },
+    { id: 'group_05_social', layout: 'socialGraph', factIds: ids([top('conversation_starts'), top('replies_received'), top('conversation_continuations'), top('member_messages')].filter(Boolean) as Fact[]), headline: 'Who runs this group?', roast: 'Sending the most is one thing. Keeping everybody connected is another.', locked: true },
+    { id: 'group_06_twist', layout: 'plotTwist', factIds: plot ? [plot.id] : ['busiest_day'].filter((id) => facts.some((fact) => fact.id === id)), headline: plotCopy.headline, roast: plotCopy.roast, locked: true },
+    { id: 'group_07_language', layout: 'groupLanguage', factIds: ids(factsOf(facts, ['top_emoji', 'repeated_phrase', 'emoji_count'], 12)), headline: "The group's language", roast: 'Somewhere along the way, these became full sentences.', locked: true },
+    { id: 'group_08_time', layout: 'timeCapsule', factIds: ['busiest_day', 'longest_conversation', 'media_peak', ...ids(factsOf(facts, ['repeated_phrase'], 1))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The moments that defined us', roast: 'A year of plans, detours and one day when nobody put the phone down.', locked: true },
+    { id: 'group_09_company', layout: 'companyRoast', factIds: ids([top('conversation_starts'), top('sorry_count'), top('money_mentions'), top('location_questions'), top('long_explanations')].filter(Boolean) as Fact[]), headline: 'If this group were a company…', roast: 'Zero salary. Unlimited meetings. Astonishing staff retention.', locked: true },
+    { id: 'group_10_duo', layout: 'dynamicDuo', factIds: ids(factsOf(facts, ['replies_received', 'conversation_continuations', 'member_messages'], 12)), headline: 'The dynamic duo', roast: 'Two people, one conversational relay race, absolutely no off switch.', locked: true },
+    { id: 'group_11_reply', layout: 'replyRace', factIds: ids(factsOf(facts, ['fast_reply'], 7)), headline: 'The reply race', roast: 'Some replies arrive before the notification has finished vibrating.', locked: true },
+    { id: 'group_12_night', layout: 'nightShift', factIds: ids(factsOf(facts, ['night_activity', 'night_share'], 12)), headline: 'The night shift', roast: 'The sun went down. The typing somehow became more urgent.', locked: true },
+    { id: 'group_13_media', layout: 'mediaDesk', factIds: ids(factsOf(facts, ['media_dropper', 'link_count', 'voice_notes'], 15)), headline: 'The media department', roast: 'Why explain it when a screenshot, link or voice note can create three new questions?', locked: true },
+    { id: 'group_14_ghost', layout: 'ghostWatch', factIds: ids(factsOf(facts, ['longest_silence', 'slow_reply'], 10)), headline: 'The vanishing act', roast: 'Last seen typing. Expected back whenever the topic has completely changed.', locked: true },
+    { id: 'group_15_laugh', layout: 'laughTrack', factIds: ids(factsOf(facts, ['laugh_count', 'laugh_rate'], 12)), headline: 'The laugh track', roast: 'Every group needs someone willing to support even the structurally weak jokes.', locked: true },
+    { id: 'group_16_spark', layout: 'conversationSpark', factIds: ids(factsOf(facts, ['conversation_starts', 'starter_share'], 12)), headline: 'Who keeps pressing start?', roast: 'Silence enters the room. This person immediately opens a new topic.', locked: true },
+    { id: 'group_17_pulse', layout: 'groupPulse', factIds: ['busiest_day', 'avg_messages_day', 'active_days', 'total_messages'].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The group pulse', roast: 'Mostly alive. Occasionally operating at emergency-broadcast levels.', locked: true },
+    { id: 'group_18_memory', layout: 'memoryVault', factIds: ['busiest_day', 'longest_conversation', 'media_peak', ...ids(factsOf(facts, ['repeated_phrase', 'top_emoji'], 10))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The memory vault', roast: 'The defining topics, recurring jokes, important milestones, longest conversations and moments worth remembering.', locked: true },
+    { id: 'group_19_movie', layout: 'movieFinale', factIds: ['chat_label', 'total_messages', 'total_members', 'verdict', top('member_messages')?.id, top('repeated_phrase')?.id].filter((id): id is string => Boolean(id) && facts.some((fact) => fact.id === id)), headline: 'Our group chat: the movie', roast: '{{value:total_members}} people, {{value:total_messages}} messages, zero productive decisions.', locked: true },
+    { id: 'group_20_verdict', layout: 'finalVerdict', factIds: ['chat_label', 'total_messages', 'total_members', 'avg_messages_day', 'verdict', ...ids(factsOf(facts, ['repeated_phrase'], 1))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The final verdict', roast: 'A collection of individuals who should probably not be left unsupervised, but somehow make life considerably more entertaining.', locked: true }
+  ]
+  return cards
+}
+
 export const redactTemplate = (template: string) => template.replace(/\{\{(?:value|detail|member):[^}]+\}\}/g, '▓▓▓▓▓')
 
 export function validatePlannedCards(cards: Card[], facts: Fact[], members: Member[]) {
@@ -150,7 +205,7 @@ export function validatePlannedCards(cards: Card[], facts: Fact[], members: Memb
   const names = members.map((member) => member.name.toLowerCase())
   return cards.every((card) => {
     const copy = `${card.headline} ${card.roast} ${card.savageRoast ?? ''}`
-    return card.factIds.every((id) => factIds.has(id)) && !names.some((name) => card.headline.toLowerCase().includes(name)) && !/\d/.test(card.headline.replace(/\{\{[^}]+\}\}/g, '')) && !vagueCardCopy.test(copy)
+    return card.factIds.every((id) => factIds.has(id)) && !names.some((name) => card.headline.toLowerCase().includes(name)) && !/\d/.test(card.headline.replace(/\{\{[^}]+\}\}/g, '')) && (groupLayouts.has(card.layout) || !vagueCardCopy.test(copy))
   })
 }
 
