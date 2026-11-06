@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getAnalysis } from './getAnalysis'
-import { redactTemplate, resolveTemplate } from './planCards'
+import { planGroupCards, redactTemplate, resolveTemplate, validatePlannedCards } from './planCards'
 import { computeFacts } from './computeFacts'
 import type { AggregateChat } from './types'
 import { deriveVerdict } from './deriveVerdict'
@@ -70,6 +70,17 @@ describe('dynamic card planning', () => {
     expect(archetypes).not.toContain('The Reliable Regular')
   })
 
+  it('assigns every member in a large group without looping or duplicating titles', () => {
+    const members = Array.from({ length: 250 }, (_, index) => ({
+      id: `large_${index}`, name: `Member ${index}`, messages: index + 1, sharePct: .4,
+      avgReplyMins: 5, longestSilenceHrs: index, starts: index % 8, laughs: index % 12,
+      sorrys: 0, nightMessages: index % 20, mediaCount: index % 6
+    }))
+    const archetypes = assignArchetypes(members)
+    expect(archetypes.size).toBe(members.length)
+    expect(new Set([...archetypes.values()].map((item) => item.title)).size).toBe(members.length)
+  })
+
   it('keeps locked templates free of resolved names and values', async () => {
     const result = await getAnalysis('group', { mock: 'friends' })
     for (const card of result.cards.filter((item) => item.locked)) {
@@ -81,6 +92,12 @@ describe('dynamic card planning', () => {
       }
       for (const member of result.members) expect(redacted).not.toContain(member.name)
     }
+  })
+
+  it('does not reject deterministic cards when a short display name appears inside normal prose', async () => {
+    const result = await getAnalysis('group', { mock: 'friends' })
+    const members = result.members.map((member, index) => index === 0 ? { ...member, name: 'H' } : member)
+    expect(validatePlannedCards(planGroupCards(result.facts), result.facts, members)).toBe(true)
   })
 
   it('rejects placeholder verdicts and derives an evidence-based closing verdict', () => {

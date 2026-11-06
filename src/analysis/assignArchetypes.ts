@@ -37,6 +37,7 @@ const roles: Role[] = [
 
 const fallbackAdjectives = ['Steady', 'Low-Key', 'Unfiltered', 'Unshakeable', 'Unexpected', 'Essential', 'Unscheduled', 'Original', 'Unmissable', 'Legendary', 'Restless', 'Reliable']
 const fallbackNouns = ['Signal', 'Wildcard', 'Constant', 'Witness', 'Frequency', 'Plot Device', 'Co-Sign', 'Side Quest', 'Broadcast', 'Footnote', 'Catalyst', 'Committee']
+const fallbackTitles = fallbackAdjectives.flatMap((adjective) => fallbackNouns.map((noun) => `The ${adjective} ${noun}`))
 
 function hash(value: string) {
   let result = 2166136261
@@ -59,15 +60,12 @@ export function assignArchetypes(members: Member[]) {
     usedTitles.add(pair.role.title)
   }
 
-  members.forEach((member) => {
+  members.forEach((member, memberIndex) => {
     if (assigned.has(member.id)) return
     const seed = hash(member.id)
-    let attempt = 0
-    let title = ''
-    do {
-      title = `The ${fallbackAdjectives[(seed + attempt) % fallbackAdjectives.length]} ${fallbackNouns[(Math.floor(seed / 13) + attempt * 5) % fallbackNouns.length]}`
-      attempt++
-    } while (usedTitles.has(title))
+    const start = seed % fallbackTitles.length
+    const title = Array.from({ length: fallbackTitles.length }, (_, offset) => fallbackTitles[(start + offset) % fallbackTitles.length]).find((candidate) => !usedTitles.has(candidate))
+      ?? `${fallbackTitles[start]} · Cast ${memberIndex + 1}`
     usedTitles.add(title)
     assigned.set(member.id, { title, description: 'No duplicate casting. This role exists because this person does.', emoji: '✨' })
   })

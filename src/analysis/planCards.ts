@@ -180,19 +180,19 @@ export function planGroupCards(facts: Fact[]): Card[] {
     { id: 'group_04_awards', layout: 'groupAwards', factIds: ids([top('longest_silence'), top('slow_reply'), top('conversation_starts'), top('long_explanations'), top('avg_message_words')].filter(Boolean) as Fact[]), headline: 'The Group Chat Awards', roast: 'The nominations came from the data. The final mess belongs to the voters.', locked: true },
     { id: 'group_05_social', layout: 'socialGraph', factIds: ids([top('conversation_starts'), top('replies_received'), top('conversation_continuations'), top('member_messages')].filter(Boolean) as Fact[]), headline: 'Who runs this group?', roast: 'Sending the most is one thing. Keeping everybody connected is another.', locked: true },
     { id: 'group_06_twist', layout: 'plotTwist', factIds: plot ? [plot.id] : ['busiest_day'].filter((id) => facts.some((fact) => fact.id === id)), headline: plotCopy.headline, roast: plotCopy.roast, locked: true },
-    { id: 'group_07_language', layout: 'groupLanguage', factIds: ids(factsOf(facts, ['top_emoji', 'repeated_phrase', 'emoji_count'], 12)), headline: "The group's language", roast: 'Somewhere along the way, these became full sentences.', locked: true },
-    { id: 'group_08_time', layout: 'timeCapsule', factIds: ['busiest_day', 'longest_conversation', 'media_peak', ...ids(factsOf(facts, ['repeated_phrase'], 1))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The moments that defined us', roast: 'A year of plans, detours and one day when nobody put the phone down.', locked: true },
+    { id: 'group_07_language', layout: 'groupLanguage', factIds: ids(factsOf(facts, ['top_emoji', 'repeated_phrase', 'emoji_count'], 12)), headline: "The group's language", roast: 'Raw usage only. Common filler words and names no enter this list.', locked: true },
+    { id: 'group_08_time', layout: 'timeCapsule', factIds: ['busiest_day', 'longest_conversation', 'media_peak', 'busiest_day_topic', 'longest_conversation_topic', 'media_peak_topic', ...ids(factsOf(facts, ['repeated_phrase'], 3))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The moments that defined us', roast: 'Dates matter only when we remember wetin una dey discuss.', locked: true },
     { id: 'group_09_company', layout: 'companyRoast', factIds: ids([top('conversation_starts'), top('sorry_count'), top('money_mentions'), top('location_questions'), top('long_explanations')].filter(Boolean) as Fact[]), headline: 'If this group were a company…', roast: 'Zero salary. Unlimited meetings. Astonishing staff retention.', locked: true },
     { id: 'group_10_duo', layout: 'dynamicDuo', factIds: ids(factsOf(facts, ['replies_received', 'conversation_continuations', 'member_messages'], 12)), headline: 'The dynamic duo', roast: 'Two people, one conversational relay race, absolutely no off switch.', locked: true },
-    { id: 'group_11_reply', layout: 'replyRace', factIds: ids(factsOf(facts, ['fast_reply'], 7)), headline: 'The reply race', roast: 'Some replies arrive before the notification has finished vibrating.', locked: true },
+    { id: 'group_11_reply', layout: 'replyRace', factIds: ids(factsOf(facts, ['fast_reply'], 7)), headline: 'The reply race', roast: 'Average time before a different person answered. Only members with enough real replies qualify.', locked: true },
     { id: 'group_12_night', layout: 'nightShift', factIds: ids(factsOf(facts, ['night_activity', 'night_share'], 12)), headline: 'The night shift', roast: 'The sun went down. The typing somehow became more urgent.', locked: true },
     { id: 'group_13_media', layout: 'mediaDesk', factIds: ids(factsOf(facts, ['media_dropper', 'link_count', 'voice_notes'], 15)), headline: 'The media department', roast: 'Why explain it when a screenshot, link or voice note can create three new questions?', locked: true },
     { id: 'group_14_ghost', layout: 'ghostWatch', factIds: ids(factsOf(facts, ['longest_silence', 'slow_reply'], 10)), headline: 'The vanishing act', roast: 'Last seen typing. Expected back whenever the topic has completely changed.', locked: true },
-    { id: 'group_15_laugh', layout: 'laughTrack', factIds: ids(factsOf(facts, ['laugh_count', 'laugh_rate'], 12)), headline: 'The laugh track', roast: 'Every group needs someone willing to support even the structurally weak jokes.', locked: true },
+    { id: 'group_15_laugh', layout: 'laughTrack', factIds: ['laugh_moment', ...ids(factsOf(facts, ['laugh_count', 'laugh_rate'], 12))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The biggest laugh response', roast: 'Exports no include reaction counts, so we measured the laugh replies that followed.', locked: true },
     { id: 'group_16_spark', layout: 'conversationSpark', factIds: ids(factsOf(facts, ['conversation_starts', 'starter_share'], 12)), headline: 'Who keeps pressing start?', roast: 'Silence enters the room. This person immediately opens a new topic.', locked: true },
     { id: 'group_17_pulse', layout: 'groupPulse', factIds: ['busiest_day', 'avg_messages_day', 'active_days', 'total_messages'].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The group pulse', roast: 'Mostly alive. Occasionally operating at emergency-broadcast levels.', locked: true },
     { id: 'group_18_memory', layout: 'memoryVault', factIds: ['busiest_day', 'longest_conversation', 'media_peak', ...ids(factsOf(facts, ['repeated_phrase', 'top_emoji'], 10))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The memory vault', roast: 'The defining topics, recurring jokes, important milestones, longest conversations and moments worth remembering.', locked: true },
-    { id: 'group_19_movie', layout: 'movieFinale', factIds: ['chat_label', 'total_messages', 'total_members', 'verdict', top('member_messages')?.id, top('repeated_phrase')?.id].filter((id): id is string => Boolean(id) && facts.some((fact) => fact.id === id)), headline: 'Our group chat: the movie', roast: '{{value:total_members}} people, {{value:total_messages}} messages, zero productive decisions.', locked: true },
+    { id: 'group_19_movie', layout: 'movieFinale', factIds: ['chat_label', 'total_messages', 'total_members', 'verdict', 'busiest_day_topic', 'longest_conversation_topic', top('member_messages')?.id, ...ids(factsOf(facts, ['repeated_phrase'], 3))].filter((id): id is string => Boolean(id) && facts.some((fact) => fact.id === id)), headline: 'Our group chat: the movie', roast: '{{value:total_members}} people and {{value:total_messages}} messages built this story.', locked: true },
     { id: 'group_20_verdict', layout: 'finalVerdict', factIds: ['chat_label', 'total_messages', 'total_members', 'avg_messages_day', 'verdict', ...ids(factsOf(facts, ['repeated_phrase'], 1))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The final verdict', roast: 'A collection of individuals who should probably not be left unsupervised, but somehow make life considerably more entertaining.', locked: true }
   ]
   return cards
@@ -200,12 +200,15 @@ export function planGroupCards(facts: Fact[]): Card[] {
 
 export const redactTemplate = (template: string) => template.replace(/\{\{(?:value|detail|member):[^}]+\}\}/g, '▓▓▓▓▓')
 
-export function validatePlannedCards(cards: Card[], facts: Fact[], members: Member[]) {
+export function validatePlannedCards(cards: Card[], facts: Fact[], _members: Member[]) {
   const factIds = new Set(facts.map((fact) => fact.id))
-  const names = members.map((member) => member.name.toLowerCase())
   return cards.every((card) => {
     const copy = `${card.headline} ${card.roast} ${card.savageRoast ?? ''}`
-    return card.factIds.every((id) => factIds.has(id)) && !names.some((name) => card.headline.toLowerCase().includes(name)) && !/\d/.test(card.headline.replace(/\{\{[^}]+\}\}/g, '')) && (groupLayouts.has(card.layout) || !vagueCardCopy.test(copy))
+    // These deterministic templates never receive member names. Comparing their
+    // prose to real names causes false positives for short names such as "H" or
+    // common-word display names. AI plans are guarded separately on the server,
+    // where the model receives aliases instead of names.
+    return card.factIds.every((id) => factIds.has(id)) && !/\d/.test(card.headline.replace(/\{\{[^}]+\}\}/g, '')) && (groupLayouts.has(card.layout) || !vagueCardCopy.test(copy))
   })
 }
 

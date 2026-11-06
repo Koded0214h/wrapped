@@ -477,10 +477,10 @@ svg { flex: 0 0 auto; }
 .story-progress i { background: rgba(255,255,255,.15); }
 .story-progress i.is-filled { background: #ffdf61; }
 .story-progress em { background: #ff5d73; }
-.story-frame-wrap { perspective: 1400px; }
-.story-frame { --tilt-x: 0deg; --tilt-y: 0deg; --shine-x: 50%; --shine-y: 20%; border-radius: 24px; transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateZ(0); transform-style: preserve-3d; transition: transform .16s ease-out, box-shadow .2s ease; box-shadow: 0 48px 90px rgba(0,0,0,.55), 0 17px 28px rgba(8,5,30,.46), 0 0 0 1px rgba(255,255,255,.17), inset 0 1px 0 rgba(255,255,255,.28); }
-.story-frame::after { content: ''; position: absolute; z-index: 11; inset: 0; border-radius: inherit; pointer-events: none; opacity: .22; background: radial-gradient(circle at var(--shine-x) var(--shine-y), rgba(255,255,255,.75), transparent 23%); mix-blend-mode: soft-light; }
-.story-frame-wrap:hover .story-frame { box-shadow: 0 58px 105px rgba(0,0,0,.62), 0 20px 34px rgba(8,5,30,.5), 0 0 0 1px rgba(255,255,255,.22); }
+.story-frame-wrap { perspective: none; }
+.story-frame { border-radius: 24px; transform: translateZ(0); box-shadow: 0 32px 64px rgba(0,0,0,.48), 0 0 0 1px rgba(255,255,255,.17); }
+.story-frame::after { content: ''; position: absolute; z-index: 11; inset: 0; border-radius: inherit; pointer-events: none; opacity: .1; background: linear-gradient(145deg,rgba(255,255,255,.28),transparent 24%); }
+.story-frame-wrap:hover .story-frame { box-shadow: 0 32px 64px rgba(0,0,0,.48), 0 0 0 1px rgba(255,255,255,.17); }
 .share-panel h2 { color: white; }
 .share-panel .button--primary { background: #ffdf61; color: #15132d; }
 .share-panel .button--secondary { background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
@@ -578,6 +578,8 @@ svg { flex: 0 0 auto; }
 .award-plaque > div { margin-top: 13px; padding-top: 13px; border-top: 2px dashed var(--ink); display: flex; align-items: center; gap: 11px; }
 .award-plaque > div .member-character { border: 3px solid var(--ink); }
 .award-plaque > div strong { font: 750 1.22rem "Fredoka Variable"; }
+.award-plaque > div span { min-width: 0; display: grid; gap: 3px; }
+.award-plaque > div em { font-size: .54rem; font-style: normal; opacity: .72; }
 .award-plaque > button { width: 100%; min-height: 38px; margin-top: 13px; padding: 0 9px; border: 2px solid var(--ink); border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--ink); background: var(--yellow); font-size: .56rem; font-weight: 850; box-shadow: 0 4px 0 var(--ink); }
 .award-plaque > button.is-voted { background: var(--mint); }
 .award-plaque > button svg { width: 14px; }
@@ -624,7 +626,7 @@ svg { flex: 0 0 auto; }
 .word-sculpture { margin-top: 17px; min-height: 148px; display: flex; flex-wrap: wrap; align-content: center; gap: 7px; }
 .word-sculpture > span { padding: 7px 10px; border: 2px solid var(--ink); border-radius: 99px; background: #fff9ec; font: 750 calc(1.05rem - var(--word-rank) * .05rem) "Fredoka Variable"; box-shadow: 3px 3px 0 var(--ink); transform: rotate(calc((var(--word-rank) - 2) * 1.5deg)); }
 .word-sculpture b { margin-left: 6px; color: var(--blue); font-size: .54rem; }
-.language-translation { padding: 11px 12px; border-left: 4px solid var(--coral); background: rgba(255,255,255,.45); }
+.language-translation { padding: 11px 12px; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.45); }
 .language-translation small { font-size: .49rem; font-weight: 850; text-transform: uppercase; }
 .language-translation p { margin-top: 4px; font-size: .62rem; line-height: 1.35; }
 
@@ -717,6 +719,9 @@ svg { flex: 0 0 auto; }
 .group-card--laughtrack h2 { margin-top: 14px; font-size: 2.2rem; line-height: .9; text-align: center; }
 .laugh-wave { height: 47px; margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 3px; }.laugh-wave i { width: 5px; border-radius: 5px; background: var(--ink); }
 .laugh-board { margin-top: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }.laugh-board > div { padding: 7px 8px; border: 1.5px solid var(--ink); display: grid; grid-template-columns: 15px 1fr auto; background: rgba(255,255,255,.55); font-size: .53rem; font-weight: 850; }.laugh-board b { color: var(--blue); }
+.laugh-moment { margin-top: 17px; padding: 15px; border: 2px solid var(--ink); border-radius: 14px; background: rgba(255,255,255,.72); box-shadow: 5px 6px 0 var(--ink); }
+.laugh-moment blockquote { margin: 0; font: 750 1.05rem/1.2 "Fredoka Variable"; }
+.laugh-moment span { display: block; margin-top: 10px; font-size: .55rem; font-weight: 850; text-transform: uppercase; }
 
 .group-card--spark { background: #ffb638; }
 .spark-match { height: 142px; margin: 17px -22px 13px; position: relative; display: grid; place-items: center; overflow: hidden; background: var(--ink); }.spark-match > i { width: 220px; height: 12px; border-radius: 7px; background: #f0d0a3; transform: rotate(-8deg); }.spark-match > svg { width: 78px; height: 78px; position: absolute; left: 50%; top: 7px; color: #ff5d42; transform: translateX(-50%); filter: drop-shadow(0 0 12px #ff824f); }.spark-match > span { position: absolute; right: 15px; bottom: 10px; color: white; font-size: .54rem; font-weight: 850; text-align: right; text-transform: uppercase; }

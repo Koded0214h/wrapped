@@ -3,6 +3,7 @@ import { Activity, Award as AwardIcon, BarChart3, BookHeart, BriefcaseBusiness, 
 import type { Card, Fact, LayoutType, Member } from '../analysis/types'
 import { resolveTemplate } from '../analysis/planCards'
 import { assignArchetypes } from '../analysis/assignArchetypes'
+import { isDisplayableMemberName, normalizeMemberName } from '../analysis/memberNames'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { MemberCharacter } from '../components/MemberCharacter'
 import { brand } from '../config/brand'
@@ -10,6 +11,8 @@ import { brand } from '../config/brand'
 type Props = { card: Card; facts: Fact[]; members: Member[]; savage: boolean; hideNames: boolean; preview?: boolean; watermark?: boolean }
 type LayoutProps = Props & { referenced: Fact[]; headline: string; roast: string }
 const format = (value: string | number) => typeof value === 'number' ? new Intl.NumberFormat('en-GB').format(value) : value
+const fillerWords = new Set(['dey','don','sha','make','one','na','get','come','know','say','just','like','still','even','thing','people','una','dem','abi','abeg','sef','oya','omo','wetin','wey','fit','wan','yeah','okay','lol','lmao','im'])
+const displayableMember = (member: Member) => isDisplayableMemberName(member.name)
 
 const memberFor = (fact: Fact | undefined, members: Member[]) => members.find((member) => member.id === fact?.memberIds[0])
 
@@ -66,7 +69,7 @@ function Heatmap({ headline, referenced, roast, members }: LayoutProps) {
 function Verdict({ headline, roast, members }: LayoutProps) { return <div className="slide slide--verdict"><div className="slide__topline"><span>WETIN THIS CHAT BE</span><PartyPopper /></div><div className="verdict__seal">CHAT TYPE</div><h2>{headline}</h2><p>{roast}</p><div className="verdict__members">{members.slice(0,7).map((member)=><MemberCharacter key={member.id} member={member} size="md" />)}</div><div className="verdict__cta">Run your own for <strong>{brand.domain}</strong></div></div> }
 
 const topMember = (members: Member[], score: (member: Member) => number) => [...members].sort((a, b) => score(b) - score(a))[0]
-const shortName = (name: string) => name.split(/\s+/)[0]
+const shortName = (name: string) => normalizeMemberName(name).split(/\s+/)[0]
 
 function GroupNumbers({ headline, referenced, roast, members }: LayoutProps) {
   const byKind = new Map(referenced.map((fact) => [fact.kind, fact]))
@@ -125,13 +128,20 @@ function CharacterCast({ members, roast }: LayoutProps) {
 }
 
 function GroupAwards({ members, roast }: LayoutProps) {
-  const awards = useMemo(() => [
-    ['Disappear & return like nothing happened', topMember(members, (member) => member.longestSilenceHrs)],
-    ['Say “I’m coming” while still at home', topMember(members, (member) => member.avgReplyMins)],
-    ['Start something in the group', topMember(members, (member) => member.starts)],
-    ['Leave everybody waiting', topMember(members, (member) => member.avgReplyMins)],
-    ['Send an unnecessarily long explanation', topMember(members, (member) => (member.explanationCount ?? 0) * 20 + (member.avgMessageWords ?? 0))]
-  ] as [string, Member][], [members])
+  const awards = useMemo(() => {
+    const missing = topMember(members, (member) => member.longestSilenceHrs)
+    const slowest = topMember(members, (member) => member.avgReplyMins)
+    const starter = topMember(members, (member) => member.starts)
+    const voiceNotes = topMember(members, (member) => member.voiceNotes ?? 0)
+    const longest = topMember(members, (member) => member.longestMessageWords ?? 0)
+    return [
+      { label: 'Disappear & return like nothing happened', member: missing, evidence: `${format(Math.max(1, Math.round(missing.longestSilenceHrs / 24)))} days away` },
+      { label: 'Turn the chat into a podcast', member: voiceNotes, evidence: `${format(voiceNotes.voiceNotes ?? 0)} voice notes` },
+      { label: 'Start something in the group', member: starter, evidence: `${format(starter.starts)} conversations started` },
+      { label: 'Leave everybody waiting', member: slowest, evidence: `${format(slowest.avgReplyMins)} min average reply` },
+      { label: 'Send the longest explanation', member: longest, evidence: `${format(longest.longestMessageWords ?? 0)} words in one message` }
+    ]
+  }, [members])
   const [selected, setSelected] = useState(0)
   const [votes, setVotes] = useState<Record<number, number>>({})
   const [voted, setVoted] = useState(false)
@@ -139,7 +149,7 @@ function GroupAwards({ members, roast }: LayoutProps) {
   const vote = () => { if (!voted) { setVotes((current) => ({ ...current, [selected]: (current[selected] ?? 0) + 1 })); setVoted(true) } }
   return <div className="slide group-card group-card--awards">
     <div className="group-kicker"><span>04</span><span>The group chat awards</span><AwardIcon /></div><div className="award-burst" aria-hidden="true">★</div>
-    <div className="award-plaque"><small>Most likely to</small><h2>{award[0]}</h2><div><MemberCharacter member={award[1]} size="lg" /><strong>{award[1]?.name}</strong></div><button className={voted ? 'is-voted' : ''} onClick={vote}><Vote /> {voted ? 'Vote counted' : 'Vote for this nominee'} <b>{votes[selected] ?? 0}</b></button></div>
+    <div className="award-plaque"><small>Most likely to</small><h2>{award.label}</h2><div><MemberCharacter member={award.member} size="lg" /><span><strong>{award.member?.name}</strong><em>{award.evidence}</em></span></div><button className={voted ? 'is-voted' : ''} onClick={vote}><Vote /> {voted ? 'Vote counted' : 'Vote for this nominee'} <b>{votes[selected] ?? 0}</b></button></div>
     <div className="award-tabs">{awards.map((_, index) => <button key={index} className={index === selected ? 'is-active' : ''} onClick={() => { setSelected(index); setVoted(false) }}>{index + 1}</button>)}</div><p className="group-caption">{roast}</p>
   </div>
 }
@@ -167,36 +177,48 @@ function PlotTwist({ headline, roast, referenced, members }: LayoutProps) {
 }
 
 function GroupLanguage({ referenced, roast }: LayoutProps) {
-  const words = referenced.filter((fact) => fact.kind === 'repeated_phrase')
+  const words = referenced.filter((fact) => fact.kind === 'repeated_phrase' && fact.detail && !fillerWords.has(fact.detail.toLocaleLowerCase()))
   const emojis = referenced.filter((fact) => fact.kind === 'top_emoji')
   const leadEmoji = emojis[0] ?? referenced.find((fact) => fact.kind === 'emoji_count')
+  const languageItems = words.length >= 3 ? words.slice(0, 6) : emojis.slice(0, 5)
   return <div className="slide group-card group-card--language">
     <div className="group-kicker"><span>07</span><span>The group's language</span><Languages /></div>
     <div className="language-emoji"><span>{leadEmoji?.kind === 'top_emoji' ? leadEmoji.detail : '😂'}</span><div><small>Most-used emoji</small><strong>{format(leadEmoji?.value ?? 0)} times</strong></div></div>
-    <h2>Apparently these are complete sentences.</h2>
-    <div className="word-sculpture">{words.slice(0, 6).map((fact, index) => <span key={fact.id} style={{ '--word-rank': index } as React.CSSProperties}>{fact.detail}<b>{format(fact.value)}</b></span>)}</div>
-    <div className="language-translation"><small>Group translation</small><p>“{words[0]?.detail ?? 'abeg'}” can mean yes, no, please, hurry up, or I have nothing else to add.</p></div><p className="group-caption">{roast}</p>
+    <h2>{words.length >= 3 ? 'The words and emoji this group actually used most.' : 'The export had more emoji than distinctive words.'}</h2>
+    <div className="word-sculpture">{languageItems.map((fact, index) => <span key={fact.id} style={{ '--word-rank': index } as React.CSSProperties}>{fact.detail}<b>{format(fact.value)}</b></span>)}</div>
+    <div className="language-translation"><small>How we counted this</small><p>Names, system lines and common English or Pidgin filler words were removed first. These are usage counts, not invented translations.</p></div><p className="group-caption">{roast}</p>
   </div>
 }
 
 function TimeCapsule({ referenced, roast }: LayoutProps) {
   const find = (kind: string) => referenced.find((fact) => fact.kind === kind)
-  const busiest = find('busiest_day'), longest = find('longest_conversation'), topic = find('repeated_phrase'), media = find('media_peak')
+  const byId = (id: string) => referenced.find((fact) => fact.id === id)
+  const busiest = find('busiest_day'), longest = find('longest_conversation'), media = find('media_peak')
+  const busiestTopic = byId('busiest_day_topic'), longestTopic = byId('longest_conversation_topic'), mediaTopic = byId('media_peak_topic')
   return <div className="slide group-card group-card--time">
-    <div className="group-kicker"><span>08</span><span>The moments that defined us</span><Clock3 /></div><h2>The year,<br />in four scenes.</h2>
-    <div className="time-spine"><i /><div><small>Most active day</small><strong>{busiest?.detail ?? 'The busiest day'}</strong><span>{format(busiest?.value ?? 0)} messages</span></div><div><small>Longest conversation</small><strong>{longest?.detail ?? 'One very long session'}</strong><span>{format(longest?.value ?? 0)} messages</span></div><div><small>Most discussed</small><strong>“{topic?.detail ?? 'the usual'}”</strong><span>{format(topic?.value ?? 0)} mentions</span></div><div><small>Media avalanche</small><strong>{media?.detail ?? 'Across the year'}</strong><span>{format(media?.value ?? 0)} drops</span></div></div>
+    <div className="group-kicker"><span>08</span><span>The moments that defined us</span><Clock3 /></div><h2>The dates,<br />with the missing context.</h2>
+    <div className="time-spine"><i /><div><small>Most active day</small><strong>{busiest?.detail ?? 'The busiest day'} · {format(busiest?.value ?? 0)} messages</strong><span>{String(busiestTopic?.value ?? 'No safe readable message was available for this day.')}</span></div><div><small>Longest chat run</small><strong>{longest?.detail ?? 'One very long session'} · {format(longest?.value ?? 0)} messages</strong><span>{String(longestTopic?.value ?? 'No safe readable exchange was available for this run.')}</span></div>{Number(media?.value ?? 0) > 4 && <div><small>Busiest media day</small><strong>{media?.detail ?? 'Across the year'} · {format(media?.value ?? 0)} media drops</strong><span>{String(mediaTopic?.value ?? 'The export recorded the media, but not enough readable text around it.')}</span></div>}</div>
     <p className="group-caption">{roast}</p>
   </div>
 }
 
 function CompanyRoast({ members, roast }: LayoutProps) {
-  const roles = [
-    ['CEO', topMember(members, (member) => member.starts), 'starts the meetings'],
-    ['HR', topMember(members, (member) => member.sorrys + (member.repliesReceived ?? 0) / 5), 'settles the temperature'],
-    ['Finance', topMember(members, (member) => member.moneyMentions ?? 0), 'mentions the money'],
-    ['Security', topMember(members, (member) => member.locationQuestions ?? 0), 'needs everybody’s location'],
-    ['PR', topMember(members, (member) => (member.explanationCount ?? 0) + (member.avgMessageWords ?? 0)), 'has a full explanation']
-  ] as [string, Member, string][]
+  const roles = useMemo(() => {
+    const used = new Set<string>()
+    const pick = (score: (member: Member) => number) => {
+      const available = members.filter((member) => !used.has(member.id))
+      const member = topMember(available.length ? available : members, score)
+      if (member) used.add(member.id)
+      return member
+    }
+    return [
+      ['CEO', pick((member) => member.starts), 'starts the meetings'],
+      ['HR', pick((member) => member.sorrys + (member.repliesReceived ?? 0) / 5), 'settles the temperature'],
+      ['Finance', pick((member) => member.moneyMentions ?? 0), 'mentions the money'],
+      ['Security', pick((member) => member.locationQuestions ?? 0), 'asks for location'],
+      ['PR', pick((member) => member.avgMessageWords ?? 0), 'writes the longest updates']
+    ] as [string, Member, string][]
+  }, [members])
   return <div className="slide group-card group-card--company">
     <div className="group-kicker"><span>09</span><span>If this group were a company</span><BriefcaseBusiness /></div>
     <div className="company-brand"><span>NDM<span>®</span></span><small>Group Holdings & Unfinished Plans Ltd.</small></div>
@@ -215,11 +237,13 @@ function DynamicDuo({ members, roast }: LayoutProps) {
 }
 
 function ReplyRace({ members, roast }: LayoutProps) {
-  const ordered = [...members].sort((a, b) => a.avgReplyMins - b.avgReplyMins).slice(0, 6)
+  const qualified = members.filter((member) => (member.replyCount ?? 0) >= 3 && member.messages >= 5 && member.avgReplyMins > 0)
+  const ordered = [...qualified].sort((a, b) => a.avgReplyMins - b.avgReplyMins).slice(0, 6)
   const winner = ordered[0]
+  const replyTime = (minutes: number) => minutes < 1 ? '<1m' : `${format(minutes)}m`
   return <div className="slide group-card group-card--reply"><div className="group-kicker"><span>11</span><span>The reply race</span><TimerReset /></div>
-    <div className="reply-stopwatch"><TimerReset /><div><strong>{format(winner?.avgReplyMins ?? 0)}</strong><span>min</span></div></div><h2>{winner?.name} replies before the gist can cool down.</h2>
-    <ol className="reply-lanes">{ordered.map((member, index) => <li key={member.id}><b>{index + 1}</b><span>{shortName(member.name)}</span><i><em style={{ width: `${Math.max(12, 100 - member.avgReplyMins / Math.max(1, ordered.at(-1)?.avgReplyMins ?? 1) * 82)}%` }} /></i><strong>{format(member.avgReplyMins)}m</strong></li>)}</ol><p className="group-caption">{roast}</p>
+    <div className="reply-stopwatch"><TimerReset /><div><strong>{winner ? replyTime(winner.avgReplyMins) : '—'}</strong><span>average</span></div></div><h2>{winner ? `${winner.name} had the fastest qualified reply average.` : 'Not enough clean reply data for a fair race.'}</h2>
+    <ol className="reply-lanes">{ordered.map((member, index) => <li key={member.id}><b>{index + 1}</b><span>{shortName(member.name)}</span><i><em style={{ width: `${Math.max(12, 100 - member.avgReplyMins / Math.max(1, ordered.at(-1)?.avgReplyMins ?? 1) * 82)}%` }} /></i><strong>{replyTime(member.avgReplyMins)}</strong></li>)}</ol><p className="group-caption">{roast}</p>
   </div>
 }
 
@@ -249,13 +273,14 @@ function GhostWatch({ members, roast }: LayoutProps) {
   </div>
 }
 
-function LaughTrack({ members, roast }: LayoutProps) {
+function LaughTrack({ members, roast, referenced }: LayoutProps) {
   const ordered = [...members].sort((a, b) => b.laughs - a.laughs).slice(0, 5)
   const total = members.reduce((sum, member) => sum + member.laughs, 0)
+  const moment = referenced.find((fact) => fact.kind === 'laugh_moment')
+  const author = memberFor(moment, members)
   return <div className="slide group-card group-card--laughtrack"><div className="group-kicker"><span>15</span><span>The laugh track</span><Laugh /></div>
-    <div className="laugh-face">😂<span>{format(total)}</span></div><h2>The jokes had a very committed studio audience.</h2>
-    <div className="laugh-wave" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ height: `${22 + (index * 17) % 68}%` }} />)}</div>
-    <div className="laugh-board">{ordered.map((member, index) => <div key={member.id}><b>{index + 1}</b><span>{shortName(member.name)}</span><strong>{format(member.laughs)}</strong></div>)}</div><p className="group-caption">{roast}</p>
+    <div className="laugh-face">😂<span>{format(moment?.value ?? total)}</span></div><h2>{moment ? 'This message triggered the biggest laugh burst.' : 'Who sent the most laugh messages?'}</h2>
+    {moment ? <div className="laugh-moment"><blockquote>“{moment.detail}”</blockquote><span>{author ? `Sent by ${author.name} · ` : ''}{format(moment.value)} laugh replies followed</span></div> : <div className="laugh-board">{ordered.map((member, index) => <div key={member.id}><b>{index + 1}</b><span>{shortName(member.name)}</span><strong>{format(member.laughs)}</strong></div>)}</div>}<p className="group-caption">{roast}</p>
   </div>
 }
 
@@ -289,17 +314,18 @@ function MemoryVault({ referenced, roast }: LayoutProps) {
 
 function MovieFinale({ referenced, members, roast }: LayoutProps) {
   const messages = referenced.find((fact) => fact.kind === 'total_messages')?.value ?? 0
-  const signature = referenced.find((fact) => fact.kind === 'repeated_phrase')?.detail ?? 'One More Message'
+  const verdict = referenced.find((fact) => fact.kind === 'verdict')
+  const context = referenced.filter((fact) => fact.kind === 'topic_context').map((fact) => String(fact.value)).slice(0, 2)
   const cast = members.slice(0, 7)
   const lead = topMember(members, (member) => member.messages)
   const mediaRate = members.reduce((sum, member) => sum + member.mediaCount, 0) / Math.max(1, Number(messages))
   const genres = mediaRate > .08 ? ['Comedy', 'Found footage', 'Mystery'] : lead.sharePct > 30 ? ['Comedy', 'Biopic', 'Thriller'] : ['Comedy', 'Ensemble', 'Documentary']
   return <div className="slide group-card group-card--movie">
     <div className="movie-grain" /><div className="movie-billing"><span>19 · A {members.length}-person production</span><Clapperboard /></div>
-    <div className="movie-title"><small>This year</small><h2>“{signature}”<br />& other decisions</h2><span>{shortName(lead.name)} leads an ensemble with no adult supervision</span></div>
+    <div className="movie-title"><small>The group as a film</small><h2>{String(verdict?.value ?? 'A very long story with no quiet cast')}</h2><span>{shortName(lead.name)} sent the most messages in the ensemble</span></div>
     <div className="movie-cast">{cast.map((member, index) => <div key={member.id} className={member.id === lead?.id ? 'is-lead' : ''} style={{ '--cast-index': index } as React.CSSProperties}><MemberCharacter member={member} size="md" /></div>)}</div>
     <div className="movie-genre">{genres.map((genre) => <span key={genre}>{genre}</span>)}</div>
-    <blockquote>“{roast}”</blockquote><p className="movie-storyline">A simple plan enters the group chat. {format(messages)} messages later, friendship survives but the plan remains under review.</p><div className="movie-credits">Starring {cast.map((member) => shortName(member.name)).join(' · ')}</div><div className="movie-rating">GC<br /><b>∞</b></div>
+    <blockquote>“{roast}”</blockquote><p className="movie-storyline">{context[0] || `Across ${format(messages)} messages, this export did not preserve enough safe text to describe one honest plot.`}</p><div className="movie-credits">Starring {cast.map((member) => shortName(member.name)).join(' · ')}</div><div className="movie-rating">GC<br /><b>∞</b></div>
   </div>
 }
 
@@ -318,7 +344,7 @@ const layouts: Record<LayoutType, (props: LayoutProps) => React.ReactNode> = { c
 
 export function CardRenderer({ card, facts, members, savage, hideNames, preview, watermark = true }: Props) {
   const referenced = card.factIds.map((id) => facts.find((fact) => fact.id === id)).filter(Boolean) as Fact[]
-  const displayMembers = members.map((member,index)=>({...member,name:hideNames?`Member ${index+1}`:member.name}))
+  const displayMembers = useMemo(() => members.filter(displayableMember).map((member,index)=>({...member,name:hideNames?`Member ${index+1}`:normalizeMemberName(member.name)})), [hideNames, members])
   const headline = resolveTemplate(card.headline, referenced, displayMembers)
   const roast = resolveTemplate(savage && card.savageRoast ? card.savageRoast : card.roast, referenced, displayMembers)
   const Layout = layouts[card.layout]

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
+import { flushSync } from 'react-dom'
 import { Download, EyeOff, LockKeyhole, Pause, Play, Settings2, Share2, Sparkles, X } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import { Brand } from '../components/Brand'
@@ -16,6 +17,7 @@ import { track, timing, trackError } from '../lib/telemetry'
 import { appConfig, privacyCopy } from '../config/appConfig'
 import { brand } from '../config/brand'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
+import { ANALYSIS_SCHEMA_VERSION, clearAnalysis } from '../analysis/analysisCache'
 
 const cardLabels: Partial<Record<Card['layout'], string>> = {
   groupNumbers: 'The group in numbers', yapLeaderboard: 'The yap leaderboard', characterCast: 'Everyone has a character',
@@ -45,8 +47,8 @@ export function Story() {
   const [captureShield, setCaptureShield] = useState(false)
   const pointer = useRef<number | null>(null)
   const aiAttemptedFor = useRef<typeof analysis>(null)
-  const exportRefs = useRef<(HTMLDivElement | null)[]>([])
-  const frameRef = useRef<HTMLDivElement | null>(null)
+  const exportRef = useRef<HTMLDivElement | null>(null)
+  const [exportIndex, setExportIndex] = useState<number | null>(null)
   const currentTheme = getTheme(theme)
   const currentFont = fonts.find((item) => item.id === font) ?? fonts[0]
   const accessUnlocked = appConfig.freeAccess || unlocked
@@ -55,6 +57,7 @@ export function Story() {
   const cards = useMemo(() => analysis ? (analysis.chatType !== 'group' && has('awards') && bonusFactIds.length === 2 ? bonusCards(analysis.cards, bonusFactIds) : analysis.cards) : [], [analysis, bonusFactIds.join('|'), has])
   const totalCards = cards.length
   const currentCard = cards[index]
+  const exportCard = exportIndex === null ? null : cards[exportIndex]
   const lockedThemePreview = !currentTheme.free && !has('theme')
   const lockedFontPreview = !currentFont.free && !has('font')
   const lockedSavagePreview = savage && !has('savage')
@@ -98,6 +101,7 @@ export function Story() {
 
   const style = useMemo(() => ({ ...currentTheme.variables, '--font-display': currentFont.stack, '--font-body': '"Manrope Variable", sans-serif' } as React.CSSProperties), [currentTheme, currentFont])
   if (!analysis || !currentCard) return null
+  if (analysis.schemaVersion !== ANALYSIS_SCHEMA_VERSION) return <main className="flow"><nav className="flow__nav"><Brand /></nav><div className="flow__body"><section className="processing-error"><span><Sparkles /></span><h1>This deck needs fresh facts.</h1><p>The card logic changed after this chat was analysed. Upload the same export once more so topic context, reply samples and laugh moments can be computed correctly.</p><Button onClick={() => { void clearAnalysis(); setStep('upload') }}>Upload the export again</Button></section></div></main>
   const isLocked = currentCard.locked && !accessUnlocked
   const watermark = !has('watermark')
   const cardFacts = currentCard.factIds.map((id) => analysis.facts.find((fact) => fact.id === id)).filter(Boolean)
@@ -107,6 +111,12 @@ export function Story() {
     const url = await toPng(node, { pixelRatio: 3, cacheBust: true, backgroundColor: currentTheme.variables['--bg-from'] })
     const link = document.createElement('a'); link.download = fileName; link.href = url; link.click()
     timing('png_export', performance.now() - started)
+  }
+  const prepareExportNode = async (targetIndex: number) => {
+    flushSync(() => setExportIndex(targetIndex))
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    if (!exportRef.current) throw new Error('E-301: Export card could not be prepared.')
+    return exportRef.current
   }
   const requireExportAccess = () => {
     if (!accessUnlocked) { setCheckout('core'); return false }
@@ -118,18 +128,18 @@ export function Story() {
   const saveCurrent = async () => {
     if (!requireExportAccess()) return
     setSharing('Saving card…')
-    try { await downloadNode(exportRefs.current[index]!, `chat-wrapped-${index + 1}.png`); track('card_downloaded', { index, layout: currentCard.layout }) } finally { setSharing('') }
+    try { await downloadNode(await prepareExportNode(index), `chat-wrapped-${index + 1}.png`); track('card_downloaded', { index, layout: currentCard.layout }) } finally { setExportIndex(null); setSharing('') }
   }
   const downloadAll = async () => {
     if (!requireExportAccess()) return
     setSharing(`Preparing ${totalCards} cards…`)
-    try { for (let i = 0; i < totalCards; i++) await downloadNode(exportRefs.current[i]!, `chat-wrapped-${i + 1}.png`); track('card_downloaded', { index: -1, layout: 'all' }) } finally { setSharing('') }
+    try { for (let i = 0; i < totalCards; i++) await downloadNode(await prepareExportNode(i), `chat-wrapped-${i + 1}.png`); track('card_downloaded', { index: -1, layout: 'all' }) } finally { setExportIndex(null); setSharing('') }
   }
   const shareCurrent = async () => {
     if (!requireExportAccess()) return
     setSharing('Preparing share…')
     try {
-      const node = exportRefs.current[index]!; await document.fonts.ready
+      const node = await prepareExportNode(index); await document.fonts.ready
       const url = await toPng(node, { pixelRatio: 3, cacheBust: true }); const blob = await (await fetch(url)).blob()
       const file = new File([blob], `chat-wrapped-${index + 1}.png`, { type: 'image/png' })
       const shareUrl = `https://${brand.domain}?ref=${encodeURIComponent(currentCard.id)}`
@@ -137,22 +147,7 @@ export function Story() {
       if (canNativeShare) await navigator.share({ title: 'Our Chat Wrapped', text: `The group chat has been exposed 👀 ${shareUrl}`, files: [file] })
       else await downloadNode(node, `chat-wrapped-${index + 1}.png`)
       track('card_shared', { target: canNativeShare ? 'native' : 'download', cardId: currentCard.id.slice(0,40) })
-    } finally { setSharing('') }
-  }
-
-  const tiltCard = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'touch' || !frameRef.current) return
-    const bounds = frameRef.current.getBoundingClientRect()
-    const x = (event.clientX - bounds.left) / bounds.width - .5
-    const y = (event.clientY - bounds.top) / bounds.height - .5
-    frameRef.current.style.setProperty('--tilt-x', `${-y * 7}deg`)
-    frameRef.current.style.setProperty('--tilt-y', `${x * 9}deg`)
-    frameRef.current.style.setProperty('--shine-x', `${(x + .5) * 100}%`)
-    frameRef.current.style.setProperty('--shine-y', `${(y + .5) * 100}%`)
-  }
-  const resetTilt = () => {
-    frameRef.current?.style.setProperty('--tilt-x', '0deg')
-    frameRef.current?.style.setProperty('--tilt-y', '0deg')
+    } finally { setExportIndex(null); setSharing('') }
   }
 
   const renderedCard = isLocked
@@ -166,10 +161,10 @@ export function Story() {
       <div className="story-meta"><span>Your Chat Wrapped</span><h1>{cardLabel(currentCard.layout)}</h1><p>{index + 1} of {totalCards}</p><div className="story-meta__privacy"><EyeOff /><span>{hideNames ? 'Names are hidden' : 'Names are visible'}<small>Use Customise before sharing.</small></span></div></div>
       <div className="story-stage">
         <div className="story-progress">{cards.map((card, i) => <button key={card.id} onClick={() => go(i)} aria-label={`Go to card ${i + 1}`}><i className={i <= index ? 'is-filled' : ''}>{i === index && autoAdvance && <motion.em initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 6, ease: 'linear' }} />}</i></button>)}</div>
-        <div className="story-frame-wrap" onPointerMove={tiltCard} onPointerLeave={resetTilt}>
+        <div className="story-frame-wrap">
           <button className="tap-zone tap-zone--left" onClick={() => go(index - 1)} aria-label="Previous card" />
-          <div ref={frameRef} className="story-frame" style={style} onPointerDown={(e) => { pointer.current = e.clientX }} onPointerUp={(e) => { if (pointer.current !== null && Math.abs(e.clientX - pointer.current) > 45) go(index + (e.clientX < pointer.current ? 1 : -1)); pointer.current = null }} onPointerCancel={() => { pointer.current = null }}>
-            {isLocked ? <div key={currentCard.id} className="story-content">{renderedCard}</div> : <AnimatePresence custom={direction} mode="popLayout"><motion.div key={currentCard.id} custom={direction} variants={{ enter: (d: number) => ({ x: d * 60, opacity: 0, filter: 'blur(8px)' }), center: { x: 0, opacity: 1, filter: 'blur(0px)' }, exit: (d: number) => ({ x: d * -60, opacity: 0, filter: 'blur(8px)' }) }} initial="enter" animate="center" exit="exit" transition={{ duration: .38, ease: [0.16, 1, 0.3, 1] }} className="story-content">{renderedCard}</motion.div></AnimatePresence>}
+          <div className="story-frame" style={style} onPointerDown={(e) => { pointer.current = e.clientX }} onPointerUp={(e) => { if (pointer.current !== null && Math.abs(e.clientX - pointer.current) > 45) go(index + (e.clientX < pointer.current ? 1 : -1)); pointer.current = null }} onPointerCancel={() => { pointer.current = null }}>
+            {isLocked ? <div key={currentCard.id} className="story-content">{renderedCard}</div> : <motion.div key={currentCard.id} initial={{ x: direction * 18, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: .16, ease: 'easeOut' }} className="story-content">{renderedCard}</motion.div>}
             {isLocked && <div className="paywall paywall--safe"><div className="paywall__lock"><LockKeyhole /></div><h2>The real reveal stays sealed.</h2><p>No locked names or values are rendered until purchase.</p><Button wide onClick={() => setCheckout('core')}>Unlock this story · $1.99</Button><small><LockKeyhole /> {privacyCopy.paywall}</small></div>}
           </div>
           <button className="tap-zone tap-zone--right" onClick={() => go(index + 1)} aria-label="Next card" />
@@ -180,6 +175,6 @@ export function Story() {
     </section>
     {customise && <><div className="drawer-backdrop" onClick={() => setCustomise(false)} /><Customiser onClose={() => setCustomise(false)} buy={(item) => { setCustomise(false); setCheckout(item) }} preview={<div className="customiser-preview-theme" style={style}>{renderedCard}</div>} /></>}
     {checkout && !appConfig.freeAccess && <Checkout purchase={checkout} onClose={() => { setCheckout(null) }} />}
-    <div className="export-deck" aria-hidden="true">{cards.map((card, i) => <div className="export-frame" style={style} ref={(node) => { exportRefs.current[i] = node }} key={card.id}>{(!card.locked || accessUnlocked) && <CardRenderer card={card} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />}</div>)}</div>
+    {exportCard && <div className="export-deck" aria-hidden="true"><div className="export-frame" style={style} ref={exportRef}>{(!exportCard.locked || accessUnlocked) && <CardRenderer card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />}</div></div>}
   </main>
 }

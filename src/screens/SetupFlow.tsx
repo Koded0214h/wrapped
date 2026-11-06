@@ -9,6 +9,7 @@ import { clearPendingInput, getPendingInput, setPendingFile, setPendingMock } fr
 import { appConfig, privacyCopy } from '../config/appConfig'
 import { timing, track, trackError } from '../lib/telemetry'
 import type { ParserDiagnostics } from '../analysis/parseExport'
+import { loadAnalysis } from '../analysis/analysisCache'
 
 function Shell({ children, back }: { children: React.ReactNode; back?: () => void }) {
   return <main className="flow"><nav className="flow__nav">{back ? <button className="back-link" onClick={back}><ArrowLeft size={18} /> Back</button> : <Brand />}</nav><div className="flow__body">{children}</div></main>
@@ -65,12 +66,17 @@ export function AiConsent() {
 
 const teasers = ['Reading timestamps and senders…', 'Computing reply times locally…', 'Ranking the surprising facts…', 'Planning a different card deck…']
 export function Processing() {
-  const { chatType, setAnalysis, setStep } = useApp(); const [progress,setProgress]=useState<AnalysisProgress>({percent:4,processed:0,total:0,label:'Opening export'}); const [teaser,setTeaser]=useState(0); const [error,setError]=useState(''); const abort=useRef<AbortController | null>(null)
+  const { chatType, analysis, setAnalysis, setStep } = useApp(); const [progress,setProgress]=useState<AnalysisProgress>({percent:4,processed:0,total:0,label:'Opening export'}); const [teaser,setTeaser]=useState(0); const [error,setError]=useState(''); const abort=useRef<AbortController | null>(null)
   useEffect(() => {
     const controller = new AbortController(); abort.current = controller; const started=performance.now(); const input=getPendingInput(); let diagnostics: ParserDiagnostics | undefined; const teaserTimer=window.setInterval(()=>setTeaser((i)=>(i+1)%teasers.length),850)
-    getAnalysis(chatType,{...input,signal:controller.signal,onProgress:setProgress,onDiagnostics:(value)=>{diagnostics=value}}).then((data)=>{ const parseMs=Math.round(performance.now()-started); clearPendingInput(); setProgress({percent:100,processed:data.totals.messages,total:data.totals.messages,label:'Cards ready'}); setAnalysis(data); timing('upload_to_parse',parseMs); track('parse_completed',{messageCount:data.totals.messages,memberCount:data.members.length,cards:data.cards.length,parseMs,fileKb:input.file?Math.round(input.file.size/1024):0,format:diagnostics?.format??'mock',clock:diagnostics?.clock??'mock',dateOrder:diagnostics?.dateOrder??'mock',unknownPct:diagnostics?.unknownPct??0,languageHint:diagnostics?.languageHint??'mock'}); window.setTimeout(()=>setStep('story'),350) }).catch((reason)=>{ if (reason?.name==='AbortError') return; const message=reason instanceof Error?reason.message:'P-100 · This export could not be read.'; setError(message); trackError(reason,{step:'processing'}); track('parse_failed',{code:message.match(/[A-Z]-\d{3}/)?.[0]??'P-100'}) })
+    if (!input.file && !input.mock) {
+      if (analysis) setStep('story')
+      else void loadAnalysis().then((saved) => { if (saved) { setAnalysis(saved); setStep('story') } else setError('U-202 · The upload session expired. Please choose the export again.') })
+      return ()=>{ clearInterval(teaserTimer); controller.abort() }
+    }
+    getAnalysis(chatType,{...input,signal:controller.signal,onProgress:setProgress,onDiagnostics:(value)=>{diagnostics=value}}).then((data)=>{ const parseMs=Math.round(performance.now()-started); clearPendingInput(); setAnalysis(data); timing('upload_to_parse',parseMs); track('parse_completed',{messageCount:data.totals.messages,memberCount:data.members.length,cards:data.cards.length,parseMs,fileKb:input.file?Math.round(input.file.size/1024):0,format:diagnostics?.format??'mock',clock:diagnostics?.clock??'mock',dateOrder:diagnostics?.dateOrder??'mock',unknownPct:diagnostics?.unknownPct??0,languageHint:diagnostics?.languageHint??'mock'}); setProgress({percent:100,processed:data.totals.messages,total:data.totals.messages,label:'Story ready'}); window.setTimeout(()=>setStep('story'),150) }).catch((reason)=>{ if (reason?.name==='AbortError') return; const message=reason instanceof Error?reason.message:'P-100 · This export could not be read.'; setError(message); trackError(reason,{step:'processing'}); track('parse_failed',{code:message.match(/[A-Z]-\d{3}/)?.[0]??'P-100'}) })
     return ()=>{ clearInterval(teaserTimer); controller.abort() }
-  }, [chatType,setAnalysis,setStep])
+  }, [analysis,chatType,setAnalysis,setStep])
   if(error) return <Shell><section className="processing-error"><span><X /></span><h1>We couldn’t read this export.</h1><p>{error}</p><Button onClick={()=>setStep('upload')}>Choose another file</Button><small>Send support only the code above and your session ID—never the chat file.</small></section></Shell>
   return <Shell><section className="processing"><div className="processing__deck"><div/><div/><motion.div animate={{rotate:[2,-3,2],y:[0,-8,0]}} transition={{duration:1.4,repeat:Infinity}}><span>{Math.round(progress.percent)}%</span></motion.div></div><h1>Reading the room…</h1><AnimatePresence mode="wait"><motion.p key={teaser} initial={{opacity:0,y:5}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-5}}>{progress.label || teasers[teaser]}</motion.p></AnimatePresence><div className="progress-track"><motion.i animate={{width:`${progress.percent}%`}}/></div>{progress.total>0&&<small>{progress.processed.toLocaleString()} of {progress.total.toLocaleString()} lines</small>}<p>{privacyCopy.processing}</p><button className="cancel-parse" onClick={()=>{abort.current?.abort();clearPendingInput();setStep('upload')}}>Cancel</button></section></Shell>
 }

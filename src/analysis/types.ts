@@ -14,6 +14,7 @@ export type Member = {
   mediaCount: number
   words?: number
   avgMessageWords?: number
+  longestMessageWords?: number
   repliesReceived?: number
   replyCount?: number
   continuations?: number
@@ -65,6 +66,7 @@ export type Card = {
 }
 
 export type AnalysisResult = {
+  schemaVersion?: number
   chatType: ChatType
   chatName: string
   range: { start: string; end: string }
@@ -88,6 +90,8 @@ export type AggregateChat = Omit<AnalysisResult, 'facts' | 'cards'> & {
   topEmojis?: { emoji: string; count: number }[]
   longestConversation?: { date: string; count: number; durationMins: number }
   mediaPeak?: { date: string; count: number }
+  topicMoments?: { date: string; terms: string[]; summary: string }[]
+  laughMoment?: { text: string; memberId: string; responses: number; responders: number; date: string }
   verdict?: { title: string; blurb: string }
   sourceKind?: 'friends' | 'study' | 'couple' | 'upload'
   thinStats?: boolean

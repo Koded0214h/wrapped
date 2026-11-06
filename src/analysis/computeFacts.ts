@@ -138,12 +138,27 @@ export function computeFacts(chat: AggregateChat): Fact[] {
   }))
   if (chat.longestConversation) facts.push({
     id: 'longest_conversation', kind: 'longest_conversation', memberIds: [], value: chat.longestConversation.count,
-    detail: `${chat.longestConversation.date} · ${chat.longestConversation.durationMins} minutes`, surpriseScore: 78,
+    detail: chat.longestConversation.date, surpriseScore: 78,
     context: { confidence: 100, humourScore: 80, visualScore: 96 }
   })
   if (chat.mediaPeak) facts.push({
     id: 'media_peak', kind: 'media_peak', memberIds: [], value: chat.mediaPeak.count,
     detail: chat.mediaPeak.date, surpriseScore: 68, context: { confidence: 100, humourScore: 76, visualScore: 90 }
+  })
+  const topicFor = (date?: string) => chat.topicMoments?.find((moment) => moment.date === date)?.summary
+  const topicFacts = [
+    ['busiest_day_topic', chat.totals.busiestDay.date, 'what the busiest day was about'],
+    ['longest_conversation_topic', chat.longestConversation?.date, 'what the longest chat run was about'],
+    ['media_peak_topic', chat.mediaPeak?.date, 'what the busiest media day was about']
+  ] as const
+  topicFacts.forEach(([id, date, detail]) => {
+    const topic = topicFor(date)
+    if (topic) facts.push({ id, kind: 'topic_context', memberIds: [], value: topic, detail, surpriseScore: 70, context: { confidence: 72, humourScore: 65, visualScore: 88 } })
+  })
+  if (chat.laughMoment) facts.push({
+    id: 'laugh_moment', kind: 'laugh_moment', memberIds: chat.laughMoment.memberId ? [chat.laughMoment.memberId] : [],
+    value: chat.laughMoment.responses, detail: chat.laughMoment.text, surpriseScore: 88,
+    context: { confidence: 76, humourScore: 96, visualScore: 94, gap: chat.laughMoment.responders }
   })
 
   const verdictIsPlaceholder = chat.verdict && (/^the final verdict is in/i.test(chat.verdict.title) || /smaller, honest deck/i.test(chat.verdict.blurb))
@@ -156,7 +171,7 @@ export function computeFacts(chat: AggregateChat): Fact[] {
     upload: ['message_share', 'night_share', 'conversation_starts', 'longest_silence', 'repeated_phrase']
   }
   const boosted = facts.map((fact) => ({ ...fact, surpriseScore: Math.min(99, fact.surpriseScore + ((boosts[chat.sourceKind ?? 'upload'] ?? []).includes(fact.kind) ? 8 : 0)) }))
-  const required = new Set(['chat_label', 'date_range', 'total_messages', 'total_words', 'total_members', 'media_count', 'avg_messages_day', 'active_days', 'emoji_count', 'top_emoji', 'repeated_phrase', 'busiest_day', 'longest_conversation', 'media_peak', 'verdict', 'thin_stats'])
+  const required = new Set(['chat_label', 'date_range', 'total_messages', 'total_words', 'total_members', 'media_count', 'avg_messages_day', 'active_days', 'emoji_count', 'top_emoji', 'repeated_phrase', 'busiest_day', 'longest_conversation', 'media_peak', 'topic_context', 'laugh_moment', 'verdict', 'thin_stats'])
   const base = boosted.filter((fact) => required.has(fact.kind))
   const candidates = boosted.filter((fact) => !required.has(fact.kind)).sort((a, b) => b.surpriseScore - a.surpriseScore)
   return [...base, ...candidates.slice(0, 60 - base.length)]
