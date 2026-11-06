@@ -25,5 +25,5 @@ export async function getAnalysis(type: ChatType, options: { mock?: MockChatId; 
   const facts = computeFacts(aggregate)
   const cards = planCards(facts, { maxCards: aggregate.thinStats ? 6 : 9 })
   if (!validatePlannedCards(cards, facts, aggregate.members)) throw new Error('K-402: Card plan failed validation')
-  return { chatType: aggregate.chatType, chatName: aggregate.chatName, range: aggregate.range, totals: aggregate.totals, members: aggregate.members, facts, cards }
+  return { chatType: aggregate.chatType, chatName: aggregate.chatName, range: aggregate.range, totals: aggregate.totals, members: aggregate.members, facts, cards, planner: 'deterministic' }
 }

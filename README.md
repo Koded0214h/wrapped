@@ -22,7 +22,7 @@ Set the mode, then restart the app:
 VITE_PAYMENT_MODE=free
 ```
 
-- `free`: the complete story, customisation and exports are open; checkout is disabled. Shared cards retain the product-link watermark.
+- `free`: the complete story, facts-only AI planning, customisation and exports are open; checkout is disabled. Shared cards retain the product-link watermark.
 - `mock`: the checkout flow uses local server-recorded transactions and charges no money.
 - `paystack`: real checkout is enabled and `PAYSTACK_SECRET_KEY` is required.
 

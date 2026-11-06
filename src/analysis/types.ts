@@ -64,6 +64,7 @@ export type AnalysisResult = {
   members: Member[]
   facts: Fact[]
   cards: Card[]
+  planner?: 'deterministic' | 'ai'
 }
 
 export type AggregateChat = Omit<AnalysisResult, 'facts' | 'cards'> & {

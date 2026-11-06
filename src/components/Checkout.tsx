@@ -6,7 +6,7 @@ import { useApp, type Purchase } from '../store/useApp'
 import { getSessionId, track, trackError } from '../lib/telemetry'
 import { brand } from '../config/brand'
 import { appConfig } from '../config/appConfig'
-import type { Card } from '../analysis/types'
+import { planAnalysisWithAi } from '../analysis/aiPlanner'
 
 const productNames: Record<Purchase, string> = { core: 'Full story unlock', everything: 'Everything pack', theme: 'Premium theme', font: 'Premium font', savage: 'Savage mode', watermark: 'Watermark removal', awards: 'Bonus award cards' }
 const prices: Record<Purchase, { usd: string; ngn: string }> = { core: { usd: '$1.99', ngn: '₦1,500' }, everything: { usd: '$3.99', ngn: '₦3,200' }, theme: { usd: '$0.99', ngn: '₦800' }, font: { usd: '$0.99', ngn: '₦800' }, savage: { usd: '$0.99', ngn: '₦800' }, watermark: { usd: '$0.99', ngn: '₦800' }, awards: { usd: '$0.99', ngn: '₦800' } }
@@ -35,13 +35,8 @@ export function Checkout({ purchase, onClose }: { purchase: Purchase; onClose: (
   const generatePaidCards = async () => {
     if (!appConfig.aiPlanner || !analysis) return
     try {
-      const result = await post('/api/cards/plan', { facts: analysis.facts, sessionId: getSessionId() }) as { cards?: Card[]; fallback?: boolean }
-      if (!result.fallback && result.cards?.length) {
-        const deterministicVerdict = analysis.cards.find((card) => card.layout === 'verdict')
-        const aiVerdict = result.cards.find((card) => card.layout === 'verdict')
-        const aiInsights = result.cards.filter((card) => card.layout !== 'verdict')
-        setAnalysis({ ...analysis, cards: [...analysis.cards.slice(0, 2).map((card) => ({ ...card, locked: false })), ...aiInsights, ...(aiVerdict ? [aiVerdict] : deterministicVerdict ? [{ ...deterministicVerdict, locked: false }] : [])] })
-      }
+      const planned = await planAnalysisWithAi(analysis)
+      if (planned !== analysis) setAnalysis(planned)
     } catch (caught) { trackError(caught, { step: 'ai-plan' }) }
   }
 

@@ -12,9 +12,10 @@ import type { Card } from '../analysis/types'
 import { useApp, type Purchase } from '../store/useApp'
 import { fonts } from '../themes/fonts'
 import { getTheme } from '../themes/themes'
-import { track, timing } from '../lib/telemetry'
+import { track, timing, trackError } from '../lib/telemetry'
 import { appConfig, privacyCopy } from '../config/appConfig'
 import { brand } from '../config/brand'
+import { planAnalysisWithAi } from '../analysis/aiPlanner'
 
 function bonusCards(base: Card[], factIds: string[]): Card[] {
   return [...base,
@@ -24,7 +25,7 @@ function bonusCards(base: Card[], factIds: string[]): Card[] {
 }
 
 export function Story() {
-  const { analysis, unlocked, owned, theme, font, savage, hideNames, autoAdvance, setAutoAdvance, setStep } = useApp()
+  const { analysis, unlocked, owned, theme, font, savage, hideNames, autoAdvance, setAutoAdvance, setStep, setAnalysis } = useApp()
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(1)
   const [customise, setCustomise] = useState(false)
@@ -33,6 +34,7 @@ export function Story() {
   const [help, setHelp] = useState(true)
   const [captureShield, setCaptureShield] = useState(false)
   const pointer = useRef<number | null>(null)
+  const aiAttemptedFor = useRef<typeof analysis>(null)
   const exportRefs = useRef<(HTMLDivElement | null)[]>([])
   const currentTheme = getTheme(theme)
   const currentFont = fonts.find((item) => item.id === font) ?? fonts[0]
@@ -57,6 +59,13 @@ export function Story() {
   }, [accessUnlocked, cards, index, totalCards])
 
   useEffect(() => { track('story_viewed', { chatType: analysis?.chatType ?? 'unknown', cards: totalCards }) }, [analysis?.chatType, totalCards])
+  useEffect(() => {
+    if (!appConfig.freeAccess || !appConfig.aiPlanner || !analysis || analysis.planner === 'ai' || aiAttemptedFor.current === analysis) return
+    aiAttemptedFor.current = analysis
+    void planAnalysisWithAi(analysis).then((planned) => {
+      if (planned !== analysis) setAnalysis(planned)
+    }).catch((error) => trackError(error, { step: 'ai-plan-free' }))
+  }, [analysis, setAnalysis])
   useEffect(() => {
     const key = (event: KeyboardEvent) => { if (event.key === 'ArrowRight') go(index + 1); if (event.key === 'ArrowLeft') go(index - 1) }
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key)
