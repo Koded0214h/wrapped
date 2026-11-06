@@ -1,76 +1,146 @@
 import type { Card, Fact, LayoutType, Member } from './types'
 
-const blockedKinds = new Set(['health', 'religion', 'sexuality', 'ethnicity', 'finances', 'romance_group', 'explicit', 'harassment'])
+const blockedKinds = new Set(['health', 'religion', 'sexuality', 'ethnicity', 'finances', 'romance_group', 'explicit', 'harassment', 'quiet_member'])
+const vagueCardCopy = /the final verdict is in|main character|\benergy\b|\bvibes?\b|\bchaos\b|\biconic\b|\bloud\b|understood the assignment|\beconomy\b|\bdepartment\b|\bmovement\b|\breceipts\b|\bevidence\b|\bcertified\b|\bplot twist\b|admin powers|carried the group/i
 
-const presentation: Record<string, { layout: LayoutType; headline: string; roast: string; savage: string }> = {
-  member_messages: { layout: 'leaderboard', headline: '{{member:self}} turned this chat into a podcast.', roast: 'One thumb. Endless episodes.', savage: '{{member:self}} would text an empty room.' },
-  message_share: { layout: 'bigNumber', headline: 'Every {{value:self}}% of the gist leads back to {{member:self}}.', roast: 'Main-character data usage.', savage: 'A one-person broadcast station.' },
-  fast_reply: { layout: 'versus', headline: '{{member:self}} replies before the notification can breathe.', roast: '{{value:self}} minutes. Very available behaviour.', savage: 'Phone permanently in hand.' },
-  slow_reply: { layout: 'timeline', headline: '{{member:self}} lets a reply marinate for {{value:self}} minutes.', roast: 'Seen it. Considered it. Eventually replied.', savage: 'Carrier pigeon energy.' },
-  longest_silence: { layout: 'timeline', headline: '{{member:self}} disappeared for {{value:self}} hours.', roast: 'Then returned without an explanation. Elite confidence.', savage: 'Entered witness protection.' },
-  conversation_starts: { layout: 'bigNumber', headline: '{{member:self}} rescued the chat {{value:self}} times.', roast: 'The unpaid social secretary deserves flowers.', savage: 'Without them, this chat is a museum.' },
-  laugh_count: { layout: 'versus', headline: '{{member:self}} brought the laugh track.', roast: '{{value:self}} laughs. A very supportive audience.', savage: 'Laughing is the full-time job.' },
-  hard_to_impress: { layout: 'quote', headline: 'Making {{member:self}} laugh is an achievement.', roast: 'Only {{value:self}} laughs made it past quality control.', savage: 'Joy remains under investigation.' },
-  sorry_count: { layout: 'award', headline: 'The apology bouquet goes to {{member:self}}.', roast: '{{value:self}} sorrys. Growth, or repeat offences?', savage: 'The apology department stays open.' },
-  night_activity: { layout: 'heatmap', headline: 'At bedtime, {{member:self}} chose gist.', roast: '{{value:self}} night messages. Sleep never stood a chance.', savage: 'Insomnia became a personality.' },
-  media_dropper: { layout: 'award', headline: '{{member:self}} came with receipts.', roast: '{{value:self}} drops. The archive is complete.', savage: 'A human forwarding service.' },
-  quiet_member: { layout: 'bigNumber', headline: 'We checked attendance. {{member:self}} was technically here.', roast: 'Quiet luxury, but make it a group chat.', savage: 'Contributes mostly profile pictures.' },
-  reply_gap: { layout: 'timeline', headline: 'A reply from {{member:self}} needs patience.', roast: '{{value:self}} minutes. Character development for everyone.', savage: 'A reply should not need a sequel.' },
-  daily_presence: { layout: 'heatmap', headline: '{{member:self}} clocked in for gist every day.', roast: '{{value:self}} messages daily. No annual leave taken.', savage: 'The attendance is slightly concerning.' },
-  repeated_phrase: { layout: 'wordCloud', headline: '“{{detail:self}}” did overtime in this chat.', roast: '{{value:self}} appearances. At this point, it deserves admin rights.', savage: 'One word carried the entire conversation.' },
-  busiest_day: { layout: 'bigNumber', headline: '{{detail:self}} became a full group meeting.', roast: '{{value:self}} messages landed. Nobody had anywhere else to be.', savage: 'Productivity left the chat.' },
-  total_words: { layout: 'bigNumber', headline: '{{value:self}} words of evidence.', roast: 'A pocket-sized novel with no editor.', savage: 'All that typing and the plans still failed.' },
-  emoji_count: { layout: 'bigNumber', headline: '{{value:self}} emojis did the emotional labour.', roast: 'Words clocked out early.', savage: 'Punctuation lost its job.' },
-  verdict: { layout: 'verdict', headline: '{{value:self}}', roast: '{{detail:self}}', savage: '{{detail:self}}' }
+type Category = 'people' | 'rhythm' | 'chaos' | 'language' | 'totals'
+type Presentation = { category: Category; headline: string; roast: string; savage: string }
+
+const presentation: Record<string, Presentation> = {
+  member_messages: { category: 'people', headline: '{{member:self}} type like say deadline dey.', roast: '{{value:self}} messages. This thumb no collect break.', savage: 'Even if chat close, {{member:self}} go still dey type.' },
+  message_share: { category: 'people', headline: '{{member:self}} send pass everybody.', roast: 'For all the messages, na {{value:self}}% come from this phone.', savage: 'Others type too, but na {{member:self}} do the main work.' },
+  fast_reply: { category: 'rhythm', headline: 'Before notification settle, {{member:self}} don reply.', roast: '{{value:self}} minutes na the average. This person no dey keep gist waiting.', savage: '{{member:self}} dey answer notification like attendance.' },
+  slow_reply: { category: 'rhythm', headline: '{{member:self}} reply use long road.', roast: '{{value:self}} minutes na the average. If gist hot, e don cool small.', savage: 'Before {{member:self}} reply, everybody don change topic.' },
+  longest_silence: { category: 'chaos', headline: '{{member:self}} comot for chat without notice.', roast: '{{value:self}} hours without message. Later, dem return like nothing happen.', savage: 'This one no be break. Na disappearance.' },
+  conversation_starts: { category: 'people', headline: 'Na {{member:self}} dey wake this chat.', roast: '{{value:self}} times, na this person start fresh gist.', savage: 'Without {{member:self}}, plenty gist for die before e start.' },
+  laugh_count: { category: 'people', headline: '{{member:self}} laugh give everybody morale.', roast: '{{value:self}} laughs. Even weak joke collect support.', savage: 'Any joke enter, {{member:self}} don ready to laugh.' },
+  hard_to_impress: { category: 'people', headline: 'To make {{member:self}} laugh no easy.', roast: 'Na {{value:self}} laughs pass the test.', savage: '{{member:self}} check every joke before laughter fit enter.' },
+  sorry_count: { category: 'people', headline: '{{member:self}} type “sorry” well well.', roast: 'Na {{value:self}} times. Apology plenty for here.', savage: 'Sorry finish, but another one still dey come.' },
+  night_activity: { category: 'chaos', headline: 'When people dey sleep, {{member:self}} still dey type.', roast: '{{value:self}} messages after midnight. Sleep no win this battle.', savage: 'Bedtime no get authority over {{member:self}}.' },
+  night_share: { category: 'chaos', headline: '{{member:self}} keep plenty message for midnight.', roast: '{{value:self}}% of the messages wey dem send enter after midnight.', savage: 'Daytime get small. Midnight collect the main typing.' },
+  media_dropper: { category: 'people', headline: '{{member:self}} drop media tire.', roast: 'Na {{value:self}} photos, videos or links enter from this phone.', savage: 'If media no enter chat, check whether {{member:self}} dey online.' },
+  daily_presence: { category: 'rhythm', headline: '{{member:self}} no miss roll call.', roast: '{{value:self}} messages for every active day.', savage: 'No leave. No quiet week. Just steady typing.' },
+  starter_share: { category: 'people', headline: 'Na {{member:self}} dey restart dead chat.', roast: '{{value:self}}% of fresh gist start from this person.', savage: 'Everybody wait. {{member:self}} press start.' },
+  laugh_rate: { category: 'people', headline: '{{member:self}} laugh for almost everything.', roast: '{{value:self}} laughs for every hundred messages.', savage: 'Even joke wey bend still collect laugh.' },
+  media_rate: { category: 'people', headline: '{{member:self}} prefer send file than type.', roast: '{{value:self}} media drops for every hundred messages.', savage: 'Typing na backup plan for this phone.' },
+  repeated_phrase: { category: 'language', headline: 'This chat no let “{{detail:self}}” rest.', roast: '{{value:self}} times. Una really like this word.', savage: 'One word enter chat and una refuse free am.' },
+  busiest_day: { category: 'chaos', headline: '{{detail:self}} na serious typing day.', roast: '{{value:self}} messages land that day. Everybody suddenly get time.', savage: 'Any other plan for that day suffer.' },
+  total_words: { category: 'totals', headline: '{{value:self}} words enter this chat.', roast: 'Una type full book, but nobody arrange chapter.', savage: 'All this typing, yet some plan still need reminder.' },
+  emoji_count: { category: 'totals', headline: '{{value:self}} emojis help una talk.', roast: 'Sometimes face better pass long explanation.', savage: 'Keyboard get letters, but una choose face.' },
+  verdict: { category: 'totals', headline: '{{value:self}}', roast: '{{detail:self}}', savage: '{{detail:self}}' }
 }
 
-function cardFromFact(fact: Fact, index: number): Card {
-  const spec = presentation[fact.kind] ?? { layout: 'quote' as LayoutType, headline: '{{member:self}} changed the chat.', roast: 'The evidence speaks.', savage: 'The evidence is loud.' }
-  return { id: `card_${fact.id}`, layout: spec.layout, factIds: [fact.id], headline: spec.headline, roast: spec.roast, savageRoast: spec.savage, locked: index > 1 }
+const familyByKind: Record<string, string> = {
+  member_messages: 'participation', message_share: 'participation', daily_presence: 'participation',
+  fast_reply: 'reply_speed', slow_reply: 'reply_speed',
+  night_activity: 'night', night_share: 'night',
+  laugh_count: 'laughs', laugh_rate: 'laughs', hard_to_impress: 'laughs',
+  media_dropper: 'media', media_rate: 'media',
+  conversation_starts: 'starts', starter_share: 'starts'
 }
 
-export function planCards(facts: Fact[], options: { maxCards?: number } = {}): Card[] {
-  const safe = facts.filter((fact) => !blockedKinds.has(fact.kind) && presentation[fact.kind])
-  const thin = facts.some((fact) => fact.kind === 'thin_stats')
-  const verdict = safe.find((fact) => fact.kind === 'verdict')
-  const cover: Card = { id: 'cover', layout: 'cover', factIds: ['chat_label', 'date_range', 'total_messages', ...(thin ? ['thin_stats'] : [])], headline: '{{value:chat_label}}', roast: thin ? 'Tiny export. Loud personalities. Only the receipts we can prove.' : 'We read the totals. Yes, all of them.', locked: false }
-  const numbers: Card = { id: 'numbers', layout: 'bigNumber', factIds: ['total_messages', 'total_words', 'active_days', 'emoji_count'], headline: '{{value:total_messages}} messages of evidence.', roast: thin ? 'Small chat. Strong evidence.' : 'That is a serious amount of gist.', locked: false }
-  const target = Math.max(1, (options.maxCards ?? 9) - 2 - (verdict ? 1 : 0))
-  const genericKinds = new Set(['total_words', 'emoji_count', 'busiest_day'])
-  const ranked = [...safe].filter((fact) => !['chat_label', 'date_range', 'total_messages', 'active_days', 'verdict'].includes(fact.kind)).sort((a, b) => {
-    const genericPenalty = Number(genericKinds.has(a.kind)) - Number(genericKinds.has(b.kind))
-    return genericPenalty || b.surpriseScore - a.surpriseScore
+const comparisonKinds = new Set(['member_messages', 'message_share', 'fast_reply', 'slow_reply', 'laugh_count', 'media_dropper', 'laugh_rate', 'media_rate'])
+
+function layoutFor(fact: Fact, memberCount: number): LayoutType {
+  if (fact.kind === 'repeated_phrase') return 'wordCloud'
+  if (fact.kind === 'longest_silence' || fact.kind === 'slow_reply' || fact.kind === 'busiest_day') return 'timeline'
+  if (fact.kind === 'night_activity' || fact.kind === 'night_share') return 'heatmap'
+  if (['conversation_starts', 'hard_to_impress', 'sorry_count', 'starter_share'].includes(fact.kind)) return 'award'
+  if (comparisonKinds.has(fact.kind)) return memberCount === 2 ? 'versus' : 'leaderboard'
+  if (fact.kind === 'verdict') return 'verdict'
+  return 'bigNumber'
+}
+
+function storyScore(fact: Fact) {
+  const context = fact.context
+  const genericPenalty = ['total_words', 'emoji_count'].includes(fact.kind) ? 18 : 0
+  const lowEvidencePenalty = (context?.confidence ?? 100) < 65 ? 16 : 0
+  const magnitudeBonus = context?.magnitude === 'wild' ? 12 : context?.magnitude === 'clear' ? 5 : 0
+  return fact.surpriseScore * .42 + (context?.humourScore ?? 60) * .27 + (context?.visualScore ?? 60) * .21 + (context?.confidence ?? 80) * .1 + magnitudeBonus - genericPenalty - lowEvidencePenalty
+}
+
+type Candidate = { primary: Fact; facts: Fact[]; layout: LayoutType; category: Category; family: string; score: number }
+
+function buildCandidates(facts: Fact[]): Candidate[] {
+  const memberFacts = facts.filter((fact) => fact.memberIds.length > 0)
+  const memberCount = Math.max(1, ...memberFacts.map((fact) => fact.context?.outOf ?? 0))
+  const unkindForQuietMembers = new Set(['slow_reply', 'longest_silence', 'hard_to_impress'])
+  const byKind = new Map<string, Fact[]>()
+  facts.filter((fact) => presentation[fact.kind] && fact.kind !== 'verdict' && !blockedKinds.has(fact.kind) && !(unkindForQuietMembers.has(fact.kind) && (fact.context?.activitySharePct ?? 100) < Math.max(3, 20 / memberCount))).forEach((fact) => byKind.set(fact.kind, [...(byKind.get(fact.kind) ?? []), fact]))
+  return [...byKind.entries()].map(([kind, kindFacts]) => {
+    const ordered = [...kindFacts].sort((a, b) => (a.context?.rank ?? 99) - (b.context?.rank ?? 99) || storyScore(b) - storyScore(a))
+    const primary = ordered[0]
+    const layout = layoutFor(primary, memberCount)
+    const cardFacts = layout === 'wordCloud' ? ordered.slice(0, 6) : layout === 'leaderboard' ? ordered.slice(0, 5) : layout === 'versus' ? ordered.slice(0, 2) : [primary]
+    return { primary, facts: cardFacts, layout, category: presentation[kind].category, family: familyByKind[kind] ?? kind, score: storyScore(primary) }
+  }).sort((a, b) => b.score - a.score)
+}
+
+function chooseCandidates(candidates: Candidate[], target: number) {
+  const shocker = [...candidates].sort((a, b) => b.primary.surpriseScore - a.primary.surpriseScore || b.score - a.score)[0]
+  const opener = candidates.find((candidate) => candidate !== shocker && candidate.family !== shocker?.family && candidate.layout !== shocker?.layout && candidate.category !== 'totals') ?? candidates.find((candidate) => candidate !== shocker && candidate.family !== shocker?.family && candidate.category !== 'totals') ?? candidates.find((candidate) => candidate !== shocker) ?? shocker
+  const selected: Candidate[] = opener ? [opener] : []
+  if (shocker && shocker !== opener) selected.push(shocker)
+  const usedFamilies = new Set(selected.map((candidate) => candidate.family))
+  const layoutCounts = new Map<LayoutType, number>()
+  const categoryCounts = new Map<Category, number>()
+  selected.forEach((candidate) => {
+    layoutCounts.set(candidate.layout, (layoutCounts.get(candidate.layout) ?? 0) + 1)
+    categoryCounts.set(candidate.category, (categoryCounts.get(candidate.category) ?? 0) + 1)
   })
-  const selected: Fact[] = []
-  const usedLayouts = new Set<LayoutType>()
-  const usedMembers = new Set<string>()
+
   while (selected.length < target) {
-    const next = ranked
-      .filter((fact) => !selected.some((item) => item.kind === fact.kind) && !usedLayouts.has(presentation[fact.kind].layout))
+    const next = candidates
+      .filter((candidate) => !selected.includes(candidate) && !usedFamilies.has(candidate.family) && (layoutCounts.get(candidate.layout) ?? 0) < 2)
       .sort((a, b) => {
-        const aFresh = a.memberIds.some((id) => !usedMembers.has(id)) ? 1 : 0
-        const bFresh = b.memberIds.some((id) => !usedMembers.has(id)) ? 1 : 0
-        return (b.surpriseScore + bFresh * 8) - (a.surpriseScore + aFresh * 8)
+        const aPenalty = (categoryCounts.get(a.category) ?? 0) * 9 + (layoutCounts.get(a.layout) ?? 0) * 7
+        const bPenalty = (categoryCounts.get(b.category) ?? 0) * 9 + (layoutCounts.get(b.layout) ?? 0) * 7
+        return (b.score - bPenalty) - (a.score - aPenalty)
       })[0]
     if (!next) break
     selected.push(next)
-    usedLayouts.add(presentation[next.kind].layout)
-    next.memberIds.forEach((id) => usedMembers.add(id))
+    usedFamilies.add(next.family)
+    layoutCounts.set(next.layout, (layoutCounts.get(next.layout) ?? 0) + 1)
+    categoryCounts.set(next.category, (categoryCounts.get(next.category) ?? 0) + 1)
   }
-  for (const fact of ranked) {
-    if (selected.length === target) break
-    if (selected.some((item) => item.kind === fact.kind)) continue
-    selected.push(fact)
+
+  for (const candidate of candidates) {
+    if (selected.length >= target) break
+    if (selected.includes(candidate) || (layoutCounts.get(candidate.layout) ?? 0) >= 2) continue
+    selected.push(candidate)
+    layoutCounts.set(candidate.layout, (layoutCounts.get(candidate.layout) ?? 0) + 1)
   }
-  const planned = selected.map((fact, index) => {
-    const card = cardFromFact(fact, index + 2)
-    if (card.layout === 'leaderboard' || card.layout === 'versus' || card.layout === 'wordCloud') card.factIds = ranked.filter((item) => item.kind === fact.kind).slice(0, card.layout === 'leaderboard' ? 5 : card.layout === 'wordCloud' ? 6 : 2).map((item) => item.id)
-    return card
-  })
-  const closing = verdict ? [{ ...cardFromFact(verdict, planned.length + 2), locked: true }] : []
-  const cards = [cover, numbers, ...planned, ...closing]
-  const shockerId = selected.sort((a, b) => b.surpriseScore - a.surpriseScore)[0]?.id
-  return cards.map((card) => card.factIds.includes(shockerId) ? { ...card, locked: false } : card)
+  return { selected, shocker, opener }
+}
+
+function cardFromCandidate(candidate: Candidate): Card {
+  const spec = presentation[candidate.primary.kind]
+  return { id: `card_${candidate.primary.id}`, layout: candidate.layout, factIds: candidate.facts.map((fact) => fact.id), headline: spec.headline, roast: spec.roast, savageRoast: spec.savage, locked: true }
+}
+
+export function planCards(facts: Fact[], options: { maxCards?: number } = {}): Card[] {
+  const safe = facts.filter((fact) => !blockedKinds.has(fact.kind))
+  const thin = facts.some((fact) => fact.kind === 'thin_stats')
+  const verdict = safe.find((fact) => fact.kind === 'verdict')
+  const maxCards = Math.max(4, options.maxCards ?? 9)
+  const candidateTarget = Math.max(2, maxCards - 1 - (verdict ? 1 : 0))
+  const { selected, shocker, opener } = chooseCandidates(buildCandidates(safe), candidateTarget)
+  const rest = selected.filter((candidate) => candidate !== opener && candidate !== shocker)
+  const categoryOrder: Category[] = ['people', 'rhythm', 'chaos', 'language', 'totals']
+  rest.sort((a, b) => categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category) || b.score - a.score)
+  const sequence = [opener, ...(shocker && shocker !== opener ? [shocker] : []), ...rest].filter(Boolean) as Candidate[]
+
+  const cover: Card = {
+    id: 'cover',
+    layout: 'cover',
+    factIds: ['chat_label', 'date_range', 'total_messages', ...(thin ? ['thin_stats'] : [])],
+    headline: '{{value:chat_label}}',
+    roast: thin ? 'Export short, so na only clear pattern enter this deck.' : 'This chat get pattern. We count only wetin the export show.',
+    locked: false
+  }
+  const storyCards = sequence.map((candidate, index) => ({ ...cardFromCandidate(candidate), locked: index > 1 }))
+  const closing = verdict ? [{ ...cardFromCandidate({ primary: verdict, facts: [verdict], layout: 'verdict', category: 'totals', family: 'verdict', score: storyScore(verdict) }), locked: true }] : []
+  return [cover, ...storyCards, ...closing].slice(0, maxCards)
 }
 
 export const redactTemplate = (template: string) => template.replace(/\{\{(?:value|detail|member):[^}]+\}\}/g, '▓▓▓▓▓')
@@ -78,7 +148,10 @@ export const redactTemplate = (template: string) => template.replace(/\{\{(?:val
 export function validatePlannedCards(cards: Card[], facts: Fact[], members: Member[]) {
   const factIds = new Set(facts.map((fact) => fact.id))
   const names = members.map((member) => member.name.toLowerCase())
-  return cards.every((card) => card.factIds.every((id) => factIds.has(id)) && !names.some((name) => card.headline.toLowerCase().includes(name)) && !/\d/.test(card.headline.replace(/\{\{[^}]+\}\}/g, '')))
+  return cards.every((card) => {
+    const copy = `${card.headline} ${card.roast} ${card.savageRoast ?? ''}`
+    return card.factIds.every((id) => factIds.has(id)) && !names.some((name) => card.headline.toLowerCase().includes(name)) && !/\d/.test(card.headline.replace(/\{\{[^}]+\}\}/g, '')) && !vagueCardCopy.test(copy)
+  })
 }
 
 export function resolveTemplate(template: string, facts: Fact[], members: Member[], redacted = false) {

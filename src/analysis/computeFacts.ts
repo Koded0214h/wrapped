@@ -1,69 +1,136 @@
-import type { AggregateChat, Fact, Member } from './types'
+import type { AggregateChat, Fact, FactContext, Member } from './types'
 
-const metricSpecs: Array<{ kind: string; key: keyof Member; high: boolean; detail: string }> = [
-  { kind: 'member_messages', key: 'messages', high: true, detail: 'messages sent' },
-  { kind: 'message_share', key: 'sharePct', high: true, detail: 'percent of the chat' },
-  { kind: 'fast_reply', key: 'avgReplyMins', high: false, detail: 'average reply minutes' },
-  { kind: 'slow_reply', key: 'avgReplyMins', high: true, detail: 'average reply minutes' },
-  { kind: 'longest_silence', key: 'longestSilenceHrs', high: true, detail: 'hours silent' },
-  { kind: 'conversation_starts', key: 'starts', high: true, detail: 'conversations started' },
-  { kind: 'laugh_count', key: 'laughs', high: true, detail: 'laugh reactions' },
-  { kind: 'hard_to_impress', key: 'laughs', high: false, detail: 'laugh reactions' },
-  { kind: 'sorry_count', key: 'sorrys', high: true, detail: 'apologies' },
-  { kind: 'night_activity', key: 'nightMessages', high: true, detail: 'messages after midnight' },
-  { kind: 'media_dropper', key: 'mediaCount', high: true, detail: 'links and media drops' },
-  { kind: 'quiet_member', key: 'messages', high: false, detail: 'messages sent' },
-  { kind: 'reply_gap', key: 'avgReplyMins', high: true, detail: 'minutes per reply' },
-  { kind: 'daily_presence', key: 'messages', high: true, detail: 'activity score' },
-  { kind: 'night_share', key: 'nightMessages', high: true, detail: 'night-shift score' },
-  { kind: 'peace_maker', key: 'sorrys', high: true, detail: 'peace attempts' },
-  { kind: 'link_energy', key: 'mediaCount', high: true, detail: 'receipts supplied' },
-  { kind: 'starter_energy', key: 'starts', high: true, detail: 'chat rescues' }
+type MetricSpec = {
+  kind: string
+  high: boolean
+  detail: string
+  humourScore: number
+  visualScore: number
+  value: (member: Member, chat: AggregateChat) => number
+}
+
+const round = (value: number, places = 0) => {
+  const factor = 10 ** places
+  return Math.round(value * factor) / factor
+}
+
+const percent = (part: number, whole: number) => round(part / Math.max(1, whole) * 100, 1)
+
+const metricSpecs: MetricSpec[] = [
+  { kind: 'member_messages', high: true, detail: 'messages wey dem send', humourScore: 84, visualScore: 96, value: (member) => member.messages },
+  { kind: 'message_share', high: true, detail: 'percent of all messages', humourScore: 88, visualScore: 92, value: (member) => member.sharePct },
+  { kind: 'fast_reply', high: false, detail: 'average minutes before reply', humourScore: 91, visualScore: 88, value: (member) => member.avgReplyMins },
+  { kind: 'slow_reply', high: true, detail: 'average minutes before reply', humourScore: 88, visualScore: 84, value: (member) => member.avgReplyMins },
+  { kind: 'longest_silence', high: true, detail: 'hours wey dem quiet', humourScore: 85, visualScore: 90, value: (member) => member.longestSilenceHrs },
+  { kind: 'conversation_starts', high: true, detail: 'fresh gist wey dem start', humourScore: 86, visualScore: 82, value: (member) => member.starts },
+  { kind: 'laugh_count', high: true, detail: 'laughs wey dem send', humourScore: 90, visualScore: 89, value: (member) => member.laughs },
+  { kind: 'hard_to_impress', high: false, detail: 'laughs wey dem send', humourScore: 72, visualScore: 68, value: (member) => member.laughs },
+  { kind: 'sorry_count', high: true, detail: 'sorry wey dem type', humourScore: 78, visualScore: 76, value: (member) => member.sorrys },
+  { kind: 'night_activity', high: true, detail: 'messages after midnight', humourScore: 94, visualScore: 96, value: (member) => member.nightMessages },
+  { kind: 'night_share', high: true, detail: 'percent wey enter after midnight', humourScore: 92, visualScore: 94, value: (member) => percent(member.nightMessages, member.messages) },
+  { kind: 'media_dropper', high: true, detail: 'media wey dem drop', humourScore: 82, visualScore: 84, value: (member) => member.mediaCount },
+  { kind: 'daily_presence', high: true, detail: 'messages for each active day', humourScore: 81, visualScore: 80, value: (member, chat) => round(member.messages / Math.max(1, chat.totals.activeDays), 1) },
+  { kind: 'starter_share', high: true, detail: 'percent of fresh gist wey dem start', humourScore: 87, visualScore: 86, value: (member, chat) => percent(member.starts, chat.members.reduce((sum, item) => sum + item.starts, 0)) },
+  { kind: 'laugh_rate', high: true, detail: 'laughs for every hundred messages', humourScore: 89, visualScore: 86, value: (member) => round(member.laughs / Math.max(1, member.messages) * 100, 1) },
+  { kind: 'media_rate', high: true, detail: 'media for every hundred messages', humourScore: 80, visualScore: 83, value: (member) => round(member.mediaCount / Math.max(1, member.messages) * 100, 1) }
 ]
 
-function rankedScore(members: Member[], member: Member, key: keyof Member, high: boolean, offset: number) {
-  const values = members.map((item) => Number(item[key])).sort((a, b) => high ? b - a : a - b)
-  const rank = values.indexOf(Number(member[key]))
-  return Math.max(35, Math.min(99, 96 - rank * 9 - offset))
+function contextFor(values: number[], memberIndex: number, spec: MetricSpec, confidence: number): FactContext {
+  const value = values[memberIndex]
+  const ordered = values.map((item, index) => ({ item, index })).sort((a, b) => spec.high ? b.item - a.item : a.item - b.item)
+  const rank = ordered.findIndex((item) => item.index === memberIndex) + 1
+  const average = values.reduce((sum, item) => sum + item, 0) / Math.max(1, values.length)
+  const neighbour = ordered[rank === 1 ? 1 : Math.max(0, rank - 2)]?.item ?? value
+  const gap = Math.abs(value - neighbour)
+  const relativeGap = gap / Math.max(1, Math.abs(average))
+  return {
+    rank,
+    outOf: values.length,
+    gap: round(gap, 1),
+    average: round(average, 1),
+    ratioToAverage: round(value / Math.max(.1, average), 2),
+    confidence,
+    humourScore: spec.humourScore,
+    visualScore: spec.visualScore,
+    magnitude: relativeGap > .75 ? 'wild' : relativeGap > .3 ? 'clear' : 'close'
+  }
+}
+
+function surpriseFor(context: FactContext, value: number) {
+  const rankWeight = 78 - ((context.rank ?? 1) - 1) * 8
+  const deviation = Math.min(18, Math.abs(Math.log2(Math.max(.1, context.ratioToAverage ?? 1))) * 10)
+  const zeroPenalty = value === 0 ? 12 : 0
+  return Math.max(30, Math.min(99, Math.round(rankWeight + deviation - zeroPenalty)))
 }
 
 export function computeFacts(chat: AggregateChat): Fact[] {
   const facts: Fact[] = [
     { id: 'chat_label', kind: 'chat_label', memberIds: [], value: chat.chatName, surpriseScore: 0 },
     { id: 'date_range', kind: 'date_range', memberIds: [], value: `${chat.range.start} — ${chat.range.end}`, surpriseScore: 0 },
-    { id: 'total_messages', kind: 'total_messages', memberIds: [], value: chat.totals.messages, detail: 'messages', surpriseScore: 58 },
-    { id: 'total_words', kind: 'total_words', memberIds: [], value: chat.totals.words, detail: 'words', surpriseScore: 45 },
-    { id: 'active_days', kind: 'active_days', memberIds: [], value: chat.totals.activeDays, detail: 'active days', surpriseScore: 42 },
-    { id: 'emoji_count', kind: 'emoji_count', memberIds: [], value: chat.totals.emojis, detail: 'emojis', surpriseScore: 48 },
-    { id: 'busiest_day', kind: 'busiest_day', memberIds: [], value: chat.totals.busiestDay.count, detail: chat.totals.busiestDay.date, surpriseScore: 66 }
+    { id: 'total_messages', kind: 'total_messages', memberIds: [], value: chat.totals.messages, detail: 'messages', surpriseScore: 58, context: { confidence: 100, humourScore: 58, visualScore: 88 } },
+    { id: 'total_words', kind: 'total_words', memberIds: [], value: chat.totals.words, detail: 'words wey una type', surpriseScore: 45, context: { confidence: 100, humourScore: 52, visualScore: 76 } },
+    { id: 'active_days', kind: 'active_days', memberIds: [], value: chat.totals.activeDays, detail: 'days wey chat active', surpriseScore: 42, context: { confidence: 100, humourScore: 50, visualScore: 70 } },
+    { id: 'emoji_count', kind: 'emoji_count', memberIds: [], value: chat.totals.emojis, detail: 'emojis', surpriseScore: 48, context: { confidence: 100, humourScore: 70, visualScore: 76 } },
+    { id: 'busiest_day', kind: 'busiest_day', memberIds: [], value: chat.totals.busiestDay.count, detail: chat.totals.busiestDay.date, surpriseScore: 72, context: { confidence: 100, humourScore: 82, visualScore: 90 } }
   ]
   if (chat.thinStats) facts.push({ id: 'thin_stats', kind: 'thin_stats', memberIds: [], value: chat.totals.messages, detail: 'short export', surpriseScore: 0 })
 
-  chat.members.forEach((member, memberIndex) => metricSpecs.forEach((spec, specIndex) => {
-    const raw = Number(member[spec.key])
-    const derived = spec.kind === 'daily_presence' ? Math.round(raw / Math.max(1, chat.totals.activeDays)) : raw
-    facts.push({
-      id: `${spec.kind}_${member.id}`,
-      kind: spec.kind,
-      memberIds: [member.id],
-      value: derived,
-      detail: spec.detail,
-      surpriseScore: rankedScore(chat.members, member, spec.key, spec.high, (memberIndex + specIndex) % 4)
+  for (const spec of metricSpecs) {
+    const values = chat.members.map((member) => spec.value(member, chat))
+    chat.members.forEach((member, memberIndex) => {
+      const confidence = Math.min(100, Math.round(45 + Math.log10(member.messages + 1) * 17))
+      const context = contextFor(values, memberIndex, spec, confidence)
+      context.activitySharePct = member.sharePct
+      if (spec.kind === 'night_activity') context.sharePct = percent(member.nightMessages, member.messages)
+      facts.push({
+        id: `${spec.kind}_${member.id}`,
+        kind: spec.kind,
+        memberIds: [member.id],
+        value: values[memberIndex],
+        detail: spec.detail,
+        surpriseScore: surpriseFor(context, values[memberIndex]),
+        context
+      })
     })
-  }))
-
-  ;(chat.topWords ?? []).filter((word) => word.count > 1).slice(0, 6).forEach((word, index) => facts.push({ id: `word_${index}`, kind: 'repeated_phrase', memberIds: [], value: word.count, detail: word.word, surpriseScore: (chat.thinStats ? 94 : 82) - index * 5 }))
-  const verdictIsPlaceholder = chat.verdict && (/^the final verdict is in/i.test(chat.verdict.title) || /smaller, honest deck/i.test(chat.verdict.blurb))
-  if (chat.verdict && !verdictIsPlaceholder) facts.push({ id: 'verdict', kind: 'verdict', memberIds: [], value: chat.verdict.title, detail: chat.verdict.blurb, surpriseScore: 54 })
-  const boosts: Record<string, string[]> = {
-    friends: ['night_activity', 'laugh_count', 'media_dropper', 'quiet_member'],
-    study: ['conversation_starts', 'repeated_phrase', 'busiest_day', 'sorry_count'],
-    couple: ['fast_reply', 'slow_reply', 'longest_silence', 'verdict'],
-    upload: ['message_share', 'night_activity', 'conversation_starts', 'longest_silence', 'repeated_phrase']
   }
-  const boosted = facts.map((fact) => ({ ...fact, surpriseScore: Math.min(99, fact.surpriseScore + ((boosts[chat.sourceKind ?? 'upload'] ?? []).includes(fact.kind) ? 12 : 0)) }))
-  const required = new Set(['chat_label', 'date_range', 'total_messages', 'total_words', 'active_days', 'emoji_count', 'busiest_day', 'verdict'])
+
+  const words = (chat.topWords ?? []).filter((word) => word.count > 1).slice(0, 6)
+  const wordAverage = words.reduce((sum, word) => sum + word.count, 0) / Math.max(1, words.length)
+  words.forEach((word, index) => {
+    const next = words[index + 1]?.count ?? word.count
+    facts.push({
+      id: `word_${index}`,
+      kind: 'repeated_phrase',
+      memberIds: [],
+      value: word.count,
+      detail: word.word,
+      surpriseScore: Math.max(48, (chat.thinStats ? 96 : 88) - index * 7),
+      context: {
+        rank: index + 1,
+        outOf: words.length,
+        gap: word.count - next,
+        average: round(wordAverage, 1),
+        ratioToAverage: round(word.count / Math.max(1, wordAverage), 2),
+        confidence: Math.min(100, 55 + word.count),
+        humourScore: 91,
+        visualScore: 98,
+        magnitude: word.count - next > wordAverage * .5 ? 'wild' : word.count - next > wordAverage * .2 ? 'clear' : 'close'
+      }
+    })
+  })
+
+  const verdictIsPlaceholder = chat.verdict && (/^the final verdict is in/i.test(chat.verdict.title) || /smaller, honest deck/i.test(chat.verdict.blurb))
+  if (chat.verdict && !verdictIsPlaceholder) facts.push({ id: 'verdict', kind: 'verdict', memberIds: [], value: chat.verdict.title, detail: chat.verdict.blurb, surpriseScore: 54, context: { confidence: 90, humourScore: 86, visualScore: 92 } })
+
+  const boosts: Record<string, string[]> = {
+    friends: ['night_activity', 'laugh_count', 'media_dropper', 'repeated_phrase'],
+    study: ['conversation_starts', 'starter_share', 'busiest_day', 'repeated_phrase'],
+    couple: ['fast_reply', 'slow_reply', 'longest_silence', 'laugh_rate'],
+    upload: ['message_share', 'night_share', 'conversation_starts', 'longest_silence', 'repeated_phrase']
+  }
+  const boosted = facts.map((fact) => ({ ...fact, surpriseScore: Math.min(99, fact.surpriseScore + ((boosts[chat.sourceKind ?? 'upload'] ?? []).includes(fact.kind) ? 8 : 0)) }))
+  const required = new Set(['chat_label', 'date_range', 'total_messages', 'total_words', 'active_days', 'emoji_count', 'busiest_day', 'verdict', 'thin_stats'])
   const base = boosted.filter((fact) => required.has(fact.kind))
   const candidates = boosted.filter((fact) => !required.has(fact.kind)).sort((a, b) => b.surpriseScore - a.surpriseScore)
-  return [...base, ...candidates.slice(0, 54 - base.length)]
+  return [...base, ...candidates.slice(0, 60 - base.length)]
 }

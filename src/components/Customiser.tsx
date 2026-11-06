@@ -5,12 +5,13 @@ import { fonts } from '../themes/fonts'
 import { themes, type ThemeId } from '../themes/themes'
 import { useApp, type Purchase } from '../store/useApp'
 import { useDialogFocus } from './useDialogFocus'
+import { appConfig } from '../config/appConfig'
 
 export function Customiser({ onClose, buy, preview }: { onClose: () => void; buy: (purchase: Purchase) => void; preview: ReactNode }) {
   const dialogRef = useRef<HTMLElement>(null)
   useDialogFocus(dialogRef, onClose)
   const { theme, setTheme, font, setFont, savage, setSavage, hideNames, setHideNames, owned } = useApp()
-  const has = (item: Purchase) => owned.includes(item) || owned.includes('everything')
+  const has = (item: Purchase) => appConfig.freeAccess ? item !== 'watermark' : owned.includes(item) || owned.includes('everything')
   const selectedTheme = themes.find((item) => item.id === theme) ?? themes[0]
   const selectedFont = fonts.find((item) => item.id === font) ?? fonts[0]
   const themePreview = !selectedTheme.free && !has('theme')
@@ -37,10 +38,11 @@ export function Customiser({ onClose, buy, preview }: { onClose: () => void; buy
       <label><span><strong>Hide names</strong><small>Show Member 1, 2, 3 instead.</small></span><input type="checkbox" checked={hideNames} onChange={(e) => setHideNames(e.target.checked)} /><i /></label>
       <label><span><strong>Savage mode</strong><small>{savagePreview ? 'Previewing · export locked' : 'Turn the roast up one notch.'}</small></span><input type="checkbox" checked={savage} onChange={(e) => setSavage(e.target.checked)} /><i /></label>
     </div>
-    <div className="customiser__section"><h3>More upgrades</h3><div className="upgrade-list">
+    {!appConfig.freeAccess && <div className="customiser__section"><h3>More upgrades</h3><div className="upgrade-list">
       <button onClick={() => !has('watermark') && buy('watermark')}><Stamp /><span><strong>Remove watermark</strong><small>Clean cards without the footer link.</small></span>{has('watermark') ? <Check /> : <b>$0.99</b>}</button>
       <button onClick={() => !has('awards') && buy('awards')}><Award /><span><strong>Bonus award cards</strong><small>Extra member superlatives for sharing.</small></span>{has('awards') ? <Check /> : <b>$0.99</b>}</button>
-    </div></div>
-    {!has('everything') && <div className="bundle"><span>Best value</span><h3>Everything pack</h3><p>Full story, every theme and font, Savage mode, and no watermark.</p><Button wide onClick={() => buy('everything')}>Get everything · $3.99</Button></div>}
+    </div></div>}
+    {appConfig.freeAccess && <div className="bundle"><span>Free launch</span><h3>Everything is open</h3><p>Use every theme, font, roast and export. Shared cards keep the site link so your people can make theirs.</p></div>}
+    {!appConfig.freeAccess && !has('everything') && <div className="bundle"><span>Best value</span><h3>Everything pack</h3><p>Full story, every theme and font, Savage mode, and no watermark.</p><Button wide onClick={() => buy('everything')}>Get everything · $3.99</Button></div>}
   </aside>
 }

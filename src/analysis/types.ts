@@ -16,6 +16,20 @@ export type Member = {
 
 export type LayoutType = 'bigNumber' | 'leaderboard' | 'versus' | 'quote' | 'timeline' | 'award' | 'wordCloud' | 'heatmap' | 'verdict' | 'cover'
 
+export type FactContext = {
+  rank?: number
+  outOf?: number
+  gap?: number
+  average?: number
+  ratioToAverage?: number
+  sharePct?: number
+  activitySharePct?: number
+  confidence?: number
+  humourScore?: number
+  visualScore?: number
+  magnitude?: 'close' | 'clear' | 'wild'
+}
+
 export type Fact = {
   id: string
   kind: string
@@ -23,6 +37,7 @@ export type Fact = {
   value: number | string
   detail?: string
   surpriseScore: number
+  context?: FactContext
 }
 
 export type Card = {

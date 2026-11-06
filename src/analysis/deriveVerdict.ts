@@ -12,49 +12,49 @@ export function deriveVerdict(members: Member[], totalMessages: number) {
 
   if (members.length <= 2) {
     if (shareGap <= 12 && replyAverage > 0 && replyAverage <= 15) return {
-      title: 'Mutual Notification Society',
-      blurb: `Only ${shareGap} percentage points split the conversation, with replies averaging ${replyAverage} minutes. Properly two-sided.`
+      title: 'Both of Una Dey Reply',
+      blurb: `Na only ${shareGap} percentage points separate una messages, and reply dey take ${replyAverage} minutes on average. Both sides put hand.`
     }
     if (nightPct >= 20) return {
-      title: 'The After-Hours Hotline',
-      blurb: `${nightPct}% of the conversation happened after midnight. Apparently, sleep could wait.`
+      title: 'Midnight No Get Gate',
+      blurb: `${nightPct}% of the messages enter after midnight. Sleep wait while una continue gist.`
     }
     if (replyAverage > 0 && replyAverage <= 8) return {
-      title: 'The Rapid Response Unit',
-      blurb: `Replies averaged ${replyAverage} minutes. Neither notification was left to wonder.`
+      title: 'Sharp Sharp Reply',
+      blurb: `Reply dey take ${replyAverage} minutes on average. Notification no dey wait for this chat.`
     }
     if (shareGap >= 25) return {
-      title: 'One Types, One Reacts',
-      blurb: `${shareGap} percentage points separated both sides. The typing workload was not equally distributed.`
+      title: 'One Person Type Pass',
+      blurb: `${shareGap} percentage points separate una messages. One phone do plenty of the typing.`
     }
     if (replyAverage >= 60) return {
-      title: 'Slow-Burn Correspondence',
-      blurb: `Replies averaged ${replyAverage} minutes. This chat believes anticipation builds character.`
+      title: 'Reply Wey Take Time',
+      blurb: `Reply dey take ${replyAverage} minutes on average. Any hot gist fit cool before answer land.`
     }
     return {
-      title: 'Two-Person Gist Department',
-      blurb: `${shareGap} percentage points separated both sides. Different energy, same notification economy.`
+      title: 'Two-Person Gist',
+      blurb: `${shareGap} percentage points separate una messages. Both phones still show for the chat.`
     }
   }
 
   if ((shares[0] ?? 0) >= 40) return {
-    title: 'One Mic, Many Listeners',
-    blurb: `The busiest member carried ${Math.round(shares[0])}% of the chat. Everyone else brought supporting vocals.`
+    title: 'One Person Type Pass Everybody',
+    blurb: `The person wey send pass everybody get ${Math.round(shares[0])}% of all messages. Others still type, but gap dey.`
   }
   if (nightPct >= 20) return {
-    title: 'The Midnight Committee',
-    blurb: `${nightPct}% of the messages arrived after midnight. Sensible hours were never invited.`
+    title: 'Midnight Typing Committee',
+    blurb: `${nightPct}% of the messages enter after midnight. Sleep no fit stop this group.`
   }
   if (laughPct >= 14) return {
-    title: 'Certified Comedy Department',
-    blurb: `Laughs appeared in ${laughPct}% of the chat. The group has its own unpaid writers’ room.`
+    title: 'Laugh No Dey Finish',
+    blurb: `Laugh show for ${laughPct}% of the chat. Una dey encourage joke, whether e strong or not.`
   }
   if (mediaPct >= 20) return {
-    title: 'The Receipts Department',
-    blurb: `${mediaPct}% of the chat was media. Nobody makes a claim here without supporting evidence.`
+    title: 'Media Full Ground',
+    blurb: `${mediaPct}% of the chat na photo, video or link. Una no dey use only text talk.`
   }
   return {
-    title: 'The Daily Gist Desk',
-    blurb: `No single member crossed 40% of the conversation. The chaos was impressively collaborative.`
+    title: 'Everybody Put Hand',
+    blurb: `Na everybody type. Nobody pass 40% of all messages for the group.`
   }
 }

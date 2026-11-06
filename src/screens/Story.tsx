@@ -13,13 +13,13 @@ import { useApp, type Purchase } from '../store/useApp'
 import { fonts } from '../themes/fonts'
 import { getTheme } from '../themes/themes'
 import { track, timing } from '../lib/telemetry'
-import { privacyCopy } from '../config/appConfig'
+import { appConfig, privacyCopy } from '../config/appConfig'
 import { brand } from '../config/brand'
 
 function bonusCards(base: Card[], factIds: string[]): Card[] {
   return [...base,
-    { id: 'bonus_quick_draw', layout: 'award', factIds: factIds.slice(0, 1), headline: '{{member:self}} wins The Quick Draw.', roast: 'The notification barely landed.', savageRoast: 'Phone permanently in hand.', locked: false },
-    { id: 'bonus_receipts', layout: 'award', factIds: factIds.slice(1, 2), headline: '{{member:self}} wins The Receipt Keeper.', roast: 'The archive is complete.', savageRoast: 'A human forwarding service.', locked: false }
+    { id: 'bonus_quick_draw', layout: 'award', factIds: factIds.slice(0, 1), headline: '{{member:self}} collect Sharp Reply Award.', roast: 'Notification never settle, reply don land.', savageRoast: 'This phone no dey leave notification unanswered.', locked: false },
+    { id: 'bonus_media', layout: 'award', factIds: factIds.slice(1, 2), headline: '{{member:self}} collect Media Dropper Award.', roast: 'Photo, video and link plenty for this side.', savageRoast: 'Typing na backup plan for this phone.', locked: false }
   ]
 }
 
@@ -36,7 +36,8 @@ export function Story() {
   const exportRefs = useRef<(HTMLDivElement | null)[]>([])
   const currentTheme = getTheme(theme)
   const currentFont = fonts.find((item) => item.id === font) ?? fonts[0]
-  const has = useCallback((item: Purchase) => owned.includes(item) || owned.includes('everything'), [owned])
+  const accessUnlocked = appConfig.freeAccess || unlocked
+  const has = useCallback((item: Purchase) => appConfig.freeAccess ? item !== 'watermark' : owned.includes(item) || owned.includes('everything'), [owned])
   const bonusFactIds = analysis?.facts.filter((fact) => ['fast_reply','media_dropper'].includes(fact.kind)).slice(0,2).map((fact)=>fact.id) ?? []
   const cards = useMemo(() => analysis ? (has('awards') && bonusFactIds.length === 2 ? bonusCards(analysis.cards, bonusFactIds) : analysis.cards) : [], [analysis, bonusFactIds.join('|'), has])
   const totalCards = cards.length
@@ -52,8 +53,8 @@ export function Story() {
     setDirection(bounded > index ? 1 : -1); setIndex(bounded); setHelp(false)
     const card = cards[bounded]
     track('card_viewed', { index: bounded, layout: card?.layout ?? 'unknown' })
-    if (card?.locked && !unlocked) track('paywall_viewed', { index: bounded })
-  }, [cards, index, totalCards, unlocked])
+    if (card?.locked && !accessUnlocked) track('paywall_viewed', { index: bounded })
+  }, [accessUnlocked, cards, index, totalCards])
 
   useEffect(() => { track('story_viewed', { chatType: analysis?.chatType ?? 'unknown', cards: totalCards }) }, [analysis?.chatType, totalCards])
   useEffect(() => {
@@ -61,23 +62,23 @@ export function Story() {
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key)
   }, [go, index])
   useEffect(() => {
-    if (!autoAdvance || (currentCard?.locked && !unlocked)) return
+    if (!autoAdvance || (currentCard?.locked && !accessUnlocked)) return
     const timer = window.setTimeout(() => go(index === totalCards - 1 ? 0 : index + 1), 6000)
     return () => clearTimeout(timer)
-  }, [autoAdvance, currentCard?.locked, go, index, totalCards, unlocked])
+  }, [accessUnlocked, autoAdvance, currentCard?.locked, go, index, totalCards])
   useEffect(() => {
-    if (unlocked) { setCaptureShield(false); return }
+    if (accessUnlocked) { setCaptureShield(false); return }
     let timer: number | undefined
     const shield = () => { setCaptureShield(true); window.clearTimeout(timer); timer = window.setTimeout(() => setCaptureShield(false), 1800) }
     const key = (event: KeyboardEvent) => { if (event.key === 'PrintScreen') { event.preventDefault(); shield() } }
     const visibility = () => { if (document.hidden) setCaptureShield(true); else { window.clearTimeout(timer); timer = window.setTimeout(() => setCaptureShield(false), 1200) } }
     window.addEventListener('keydown', key); window.addEventListener('blur', shield); document.addEventListener('visibilitychange', visibility)
     return () => { window.clearTimeout(timer); window.removeEventListener('keydown', key); window.removeEventListener('blur', shield); document.removeEventListener('visibilitychange', visibility) }
-  }, [unlocked])
+  }, [accessUnlocked])
 
   const style = useMemo(() => ({ ...currentTheme.variables, '--font-display': currentFont.stack, '--font-body': '"Manrope Variable", sans-serif' } as React.CSSProperties), [currentTheme, currentFont])
   if (!analysis || !currentCard) return null
-  const isLocked = currentCard.locked && !unlocked
+  const isLocked = currentCard.locked && !accessUnlocked
   const watermark = !has('watermark')
   const cardFacts = currentCard.factIds.map((id) => analysis.facts.find((fact) => fact.id === id)).filter(Boolean)
 
@@ -88,7 +89,7 @@ export function Story() {
     timing('png_export', performance.now() - started)
   }
   const requireExportAccess = () => {
-    if (!unlocked) { setCheckout('core'); return false }
+    if (!accessUnlocked) { setCheckout('core'); return false }
     if (lockedThemePreview) { setCheckout('theme'); return false }
     if (lockedFontPreview) { setCheckout('font'); return false }
     if (lockedSavagePreview) { setCheckout('savage'); return false }
@@ -120,11 +121,11 @@ export function Story() {
   }
 
   const renderedCard = isLocked
-    ? <div className="locked-card"><div className="slide__topline"><span>{currentCard.layout.replace(/([A-Z])/g,' $1')}</span><LockKeyhole /></div><h2>{redactTemplate(currentCard.headline)}</h2><p>Unlock to reveal the names and numbers behind this card.</p></div>
+    ? <div className="locked-card"><div className="slide__topline"><span>{currentCard.layout.replace(/([A-Z])/g,' $1')}</span><LockKeyhole /></div><h2>{redactTemplate(currentCard.headline)}</h2><p>Pay first make names and numbers show for this card.</p></div>
     : <CardRenderer card={currentCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />
 
-  return <main className={`story-page ${unlocked ? 'is-unlocked' : 'is-preview'}`}>
-    {!unlocked && captureShield && <div className="capture-shield" role="alert"><LockKeyhole /><strong>Preview protected</strong><span>Unlock before saving or sharing this story.</span></div>}
+  return <main className={`story-page ${accessUnlocked ? 'is-unlocked' : 'is-preview'}`}>
+    {!accessUnlocked && captureShield && <div className="capture-shield" role="alert"><LockKeyhole /><strong>Preview protected</strong><span>Unlock before saving or sharing this story.</span></div>}
     <nav className="story-nav"><Brand /><div><button onClick={() => setAutoAdvance(!autoAdvance)}>{autoAdvance ? <Pause /> : <Play />} {autoAdvance ? 'Pause' : 'Auto-play'}</button><button onClick={() => setCustomise(true)}><Settings2 /> Customise</button><button className="story-nav__close" onClick={() => setStep('landing')} aria-label="Close story"><X /></button></div></nav>
     <section className="story-layout">
       <div className="story-meta"><span>Your Chat Wrapped</span><h1>{currentCard.layout.replace(/([A-Z])/g,' $1')}</h1><p>{index + 1} of {totalCards}</p><div className="story-meta__privacy"><EyeOff /><span>{hideNames ? 'Names are hidden' : 'Names are visible'}<small>Use Customise before sharing.</small></span></div></div>
@@ -143,7 +144,7 @@ export function Story() {
       <div className="share-panel"><h2>Keep the evidence</h2><p>Cards export at 1080 × 1920, ready for Stories and Status.</p><div><Button onClick={saveCurrent} variant="secondary"><Download /> Save card</Button><Button onClick={shareCurrent}><Share2 /> Send to group</Button></div><button className="download-all" onClick={downloadAll}><Sparkles /> Download all {totalCards} cards</button>{sharing && <span className="share-status" role="status">{sharing}</span>}<p className="share-warning">This may show your friends’ names. Hide names before posting?</p></div>
     </section>
     {customise && <><div className="drawer-backdrop" onClick={() => setCustomise(false)} /><Customiser onClose={() => setCustomise(false)} buy={(item) => { setCustomise(false); setCheckout(item) }} preview={<div className="customiser-preview-theme" style={style}>{renderedCard}</div>} /></>}
-    {checkout && <Checkout purchase={checkout} onClose={() => { setCheckout(null) }} />}
-    <div className="export-deck" aria-hidden="true">{cards.map((card, i) => <div className="export-frame" style={style} ref={(node) => { exportRefs.current[i] = node }} key={card.id}>{(!card.locked || unlocked) && <CardRenderer card={card} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />}</div>)}</div>
+    {checkout && !appConfig.freeAccess && <Checkout purchase={checkout} onClose={() => { setCheckout(null) }} />}
+    <div className="export-deck" aria-hidden="true">{cards.map((card, i) => <div className="export-frame" style={style} ref={(node) => { exportRefs.current[i] = node }} key={card.id}>{(!card.locked || accessUnlocked) && <CardRenderer card={card} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />}</div>)}</div>
   </main>
 }
