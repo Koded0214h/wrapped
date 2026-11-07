@@ -20,6 +20,7 @@ import { planAnalysisWithAi } from '../analysis/aiPlanner'
 import { ANALYSIS_SCHEMA_VERSION, clearAnalysis } from '../analysis/analysisCache'
 
 const cardLabels: Partial<Record<Card['layout'], string>> = {
+  cover: 'The opening', bigNumber: 'The number that stood out', leaderboard: 'Who did it most?', versus: 'Head to head', quote: 'What kept happening', timeline: 'How it unfolded', award: 'An award was earned', wordCloud: 'The words that stayed', heatmap: 'When the chat came alive', verdict: 'The closing verdict',
   groupNumbers: 'The group in numbers', yapLeaderboard: 'The yap leaderboard', characterCast: 'Everyone has a character',
   groupAwards: 'The group chat awards', socialGraph: 'Who runs this group?', plotTwist: 'The biggest plot twist',
   groupLanguage: "The group's language", timeCapsule: 'The moments that defined us', companyRoast: 'If this group were a company',
@@ -28,6 +29,9 @@ const cardLabels: Partial<Record<Card['layout'], string>> = {
   groupPulse: 'The group pulse', memoryVault: 'The memory vault', movieFinale: 'Our group chat: the movie', finalVerdict: 'The final verdict'
 }
 const cardLabel = (layout: Card['layout']) => cardLabels[layout] ?? layout.replace(/([A-Z])/g, ' $1')
+// React StrictMode mounts effects twice in development. Keep this outside the
+// component so the same analysis cannot trigger two paid model requests.
+const autoPlanningStarted = new WeakSet<object>()
 
 function bonusCards(base: Card[], factIds: string[]): Card[] {
   return [...base,
@@ -46,7 +50,6 @@ export function Story() {
   const [help, setHelp] = useState(true)
   const [captureShield, setCaptureShield] = useState(false)
   const pointer = useRef<number | null>(null)
-  const aiAttemptedFor = useRef<typeof analysis>(null)
   const exportRef = useRef<HTMLDivElement | null>(null)
   const [exportIndex, setExportIndex] = useState<number | null>(null)
   const currentTheme = getTheme(theme)
@@ -74,8 +77,8 @@ export function Story() {
 
   useEffect(() => { track('story_viewed', { chatType: analysis?.chatType ?? 'unknown', cards: totalCards }) }, [analysis?.chatType, totalCards])
   useEffect(() => {
-    if (!appConfig.freeAccess || !appConfig.aiPlanner || !analysis || analysis.planner === 'ai' || aiAttemptedFor.current === analysis) return
-    aiAttemptedFor.current = analysis
+    if (!appConfig.freeAccess || !appConfig.aiPlanner || !analysis || analysis.planner === 'ai' || analysis.aiAttempted || autoPlanningStarted.has(analysis)) return
+    autoPlanningStarted.add(analysis)
     void planAnalysisWithAi(analysis).then((planned) => {
       if (planned !== analysis) setAnalysis(planned)
     }).catch((error) => trackError(error, { step: 'ai-plan-free' }))

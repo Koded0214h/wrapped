@@ -3,7 +3,7 @@ import type { AnalysisProgress } from './getAnalysis'
 
 export type ParserDiagnostics = { format: 'android' | 'ios' | 'unknown'; clock: '12h' | '24h'; dateOrder: string; unknownPct: number; capped: boolean; mediaPct?: number; languageHint?: string }
 
-export function parseExport(file: File, options: { signal?: AbortSignal; onProgress?: (progress: AnalysisProgress) => void; onDiagnostics?: (diagnostics: ParserDiagnostics) => void } = {}) {
+export function parseExport(file: File, options: { includeAiChunks?: boolean; signal?: AbortSignal; onProgress?: (progress: AnalysisProgress) => void; onDiagnostics?: (diagnostics: ParserDiagnostics) => void } = {}) {
   return new Promise<AggregateChat>((resolve, reject) => {
     const worker = new Worker(new URL('./parser.worker.ts', import.meta.url), { type: 'module' })
     const timeout = window.setTimeout(() => { worker.terminate(); reject(new Error('P-108: Parsing took longer than 60 seconds. Try a smaller export.')) }, 60000)
@@ -15,6 +15,6 @@ export function parseExport(file: File, options: { signal?: AbortSignal; onProgr
       if (event.data.type === 'error') { stop(); reject(new Error(event.data.message)) }
       if (event.data.type === 'done') { options.onDiagnostics?.(event.data.diagnostics); stop(); resolve(event.data.result) }
     }
-    worker.postMessage({ file })
+    worker.postMessage({ file, includeAiChunks: options.includeAiChunks })
   })
 }

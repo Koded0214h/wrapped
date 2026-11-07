@@ -1,14 +1,15 @@
 /// <reference lib="webworker" />
 import { strFromU8, unzipSync } from 'fflate'
 import type { AggregateChat, Member } from './types'
-import { isExportPlaceholder, normalizeExportText, vocabularyArtifactWords } from './textArtifacts'
+import { isExportPlaceholder, isMediaPlaceholder, normalizeExportText, vocabularyArtifactWords } from './textArtifacts'
 import { deriveVerdict } from './deriveVerdict'
 import { isDisplayableMemberName, normalizeMemberName } from './memberNames'
 
 type ParsedMessage = { ts: number; sender: string; text: string; hour: number; dateKey: string }
-type Request = { file: File }
+type Request = { file: File; includeAiChunks?: boolean }
 
 const systemLine = /joined|left|added|removed|security code|messages and calls are end-to-end encrypted|changed the subject|created group/i
+const systemMessage = /messages and calls are end-to-end encrypted|security code changed|created (?:this )?group|changed the (?:group )?(?:subject|description|icon)|turned on disappearing messages|turned off disappearing messages/i
 const laughPattern = /😂|🤣|\blol\b|\blmao\b|ha{2,}|he{2,}/gi
 const emojiPattern = /\p{Extended_Pictographic}/gu
 const stopWords = new Set([
@@ -72,7 +73,9 @@ function parseLines(text: string) {
   let format: 'android' | 'ios' | 'unknown' = 'unknown'
   let clock: '12h' | '24h' = '24h'
   for (let index = 0; index < lines.length; index++) {
-    const line = lines[index]
+    // WhatsApp prefixes many exported lines (especially media placeholders)
+    // with invisible direction marks. Strip them before matching the timestamp.
+    const line = normalizeExportText(lines[index])
     const ios = line.match(/^\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*([^\]]+)\]\s*([^:]+):\s?(.*)$/)
     const android = line.match(/^(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s+(.+?)\s+-\s+([^:]+):\s?(.*)$/)
     const match = ios ?? android
@@ -81,17 +84,17 @@ function parseLines(text: string) {
       if (/AM|PM/i.test(match[2])) clock = '12h'
       const date = parseTimestamp(match[1], match[2], dateOrder)
       const sender = normalizeMemberName(match[3])
-      if (!date || systemLine.test(sender) || !isDisplayableMemberName(sender)) { unknown++; acceptingContinuation = false; continue }
+      if (!date || systemLine.test(sender) || systemMessage.test(match[4]) || !isDisplayableMemberName(sender)) { unknown++; acceptingContinuation = false; continue }
       messages.push({ ts: date.getTime(), sender, text: match[4], hour: date.getHours(), dateKey: date.toISOString().slice(0, 10) })
       acceptingContinuation = true
     } else if (acceptingContinuation && messages.length && line.trim()) messages[messages.length - 1].text += `\n${line}`
     else if (line.trim()) unknown++
     if (index % 3000 === 0) postMessage({ type: 'progress', progress: { percent: 12 + Math.round(index / Math.max(1, lines.length) * 58), processed: index, total: lines.length, label: 'Reading messages' } })
   }
-  return { messages: messages.slice(-60000), diagnostics: { format, clock, dateOrder, unknownPct: Math.round(unknown / Math.max(1, lines.length) * 1000) / 10, capped: messages.length > 60000, mediaPct: 0, languageHint: 'unknown' } }
+  return { messages, diagnostics: { format, clock, dateOrder, unknownPct: Math.round(unknown / Math.max(1, lines.length) * 1000) / 10, capped: false, mediaPct: 0, languageHint: 'unknown' } }
 }
 
-function aggregate(parsed: ReturnType<typeof parseLines>): AggregateChat {
+function aggregate(parsed: ReturnType<typeof parseLines>, includeAiChunks = false): AggregateChat {
   const { messages, diagnostics } = parsed
   if (messages.length < 10) fail('P-102', `Only ${messages.length} messages were readable. This export is too short to build an honest story.`)
   postMessage({ type: 'progress', progress: { percent: 72, processed: 0, total: messages.length, label: 'Counting chat patterns' } })
@@ -114,7 +117,7 @@ function aggregate(parsed: ReturnType<typeof parseLines>): AggregateChat {
     if (message.hour < 5) member.nightMessages++
     const messageText = normalizeExportText(message.text)
     const isPlaceholder = isExportPlaceholder(messageText)
-    if (isPlaceholder) {
+    if (isMediaPlaceholder(messageText)) {
       member.mediaCount++; mediaOmitted++
       mediaDays.set(message.dateKey, (mediaDays.get(message.dateKey) ?? 0) + 1)
       if (/audio|voice/i.test(messageText)) member.voiceNotes = (member.voiceNotes ?? 0) + 1
@@ -172,6 +175,10 @@ function aggregate(parsed: ReturnType<typeof parseLines>): AggregateChat {
   const topEmojis = [...emojiCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([emoji, count]) => ({ emoji, count }))
   const longest = [...sessions].sort((a, b) => b.count - a.count)[0]
   const mediaPeak = [...mediaDays.entries()].sort((a, b) => b[1] - a[1])[0]
+  const knownNames = [...memberMap.keys()].map(normalizeMemberName).filter((name) => name.length >= 3).sort((a, b) => b.length - a.length)
+  const redactKnownNames = (text: string) => knownNames.reduce((safe, name) => safe.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), 'Member'), text)
+  const aliasLetters = (index: number) => { let value = '', number = index + 1; while (number > 0) { number--; value = String.fromCharCode(65 + number % 26) + value; number = Math.floor(number / 26) } return value }
+  const speakerAliases = new Map([...memberMap.keys()].map((name, index) => [name, `Person ${aliasLetters(index)}`]))
   const topicTerms = (date?: string) => [...(wordsByDay.get(date ?? '')?.entries() ?? [])].filter(([word]) => !memberNameWords.has(word)).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([word]) => word)
   const topicSummary = (date: string, terms: string[]) => {
     const dayMessages = messages.filter((message) => message.dateKey === date)
@@ -182,14 +189,47 @@ function aggregate(parsed: ReturnType<typeof parseLines>): AggregateChat {
       return { index, snippet, matches }
     }).filter((candidate): candidate is { index: number; snippet: string; matches: number } => Boolean(candidate.snippet)).sort((a, b) => b.matches - a.matches || b.snippet.length - a.snippet.length)
     const lead = candidates[0]
-    if (!lead) return 'The export did not contain a safe readable line from this stretch.'
-    const reply = dayMessages.slice(lead.index + 1, lead.index + 5).map((message) => safeSnippet(message.text)).find(Boolean)
-    return reply
-      ? `That stretch included “${lead.snippet}” followed by “${reply}”.`
-      : `One representative message from that stretch was “${lead.snippet}”.`
+    if (!lead) return { summary: 'There was not enough safe readable text to explain this moment.', excerpt: undefined }
+    const windowStart = Math.max(0, lead.index - 4)
+    const excerpt = dayMessages.slice(windowStart, windowStart + 18).map((message) => {
+      const snippet = safeSnippet(message.text)
+      return snippet ? `${speakerAliases.get(message.sender) ?? 'Someone'}: ${redactKnownNames(snippet)}` : undefined
+    }).filter(Boolean).join('\n').slice(0, 1600)
+    return {
+      summary: 'This moment needs the AI context pass before it can be described honestly.',
+      excerpt: excerpt || undefined
+    }
   }
-  const topicDates = [...new Set([busiest?.[0], longest?.date, mediaPeak?.[0]].filter((date): date is string => Boolean(date)))]
-  const topicMoments = topicDates.map((date) => { const terms = topicTerms(date); return { date, terms, summary: topicSummary(date, terms) } }).filter((moment) => moment.terms.length)
+  const peakByMonth = new Map<string, [string, number]>()
+  for (const entry of days.entries()) {
+    const month = entry[0].slice(0, 7)
+    if (!peakByMonth.has(month) || entry[1] > peakByMonth.get(month)![1]) peakByMonth.set(month, entry)
+  }
+  const monthPeaks = [...peakByMonth.values()].sort((a, b) => a[0].localeCompare(b[0]))
+  const sampleCount = Math.min(12, monthPeaks.length)
+  const sampledMonths = Array.from({ length: sampleCount }, (_, index) => monthPeaks[Math.round(index * Math.max(0, monthPeaks.length - 1) / Math.max(1, sampleCount - 1))]?.[0]).filter((date): date is string => Boolean(date))
+  const topicDates = [...new Set([busiest?.[0], longest?.date, mediaPeak?.[0], ...sampledMonths].filter((date): date is string => Boolean(date)))].slice(0, 15)
+  const topicMoments = topicDates.map((date) => { const terms = topicTerms(date); return { date, terms, ...topicSummary(date, terms) } }).filter((moment) => moment.terms.length && moment.excerpt)
+  const aiChunks: { id: string; text: string }[] = []
+  if (includeAiChunks) {
+    const redactPii = (text: string) => text
+      .replace(/https?:\/\/\S+|www\.\S+/gi, '[link]')
+      .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, '[email]')
+      .replace(/\+?\d[\d\s().-]{7,}/g, '[phone]')
+    const unsafeContent = /\b(?:nude|nudes|porn|suicide|kill yourself|rape)\b/i
+    let chunk = '', chunkIndex = 0, currentDate = ''
+    const flush = () => { if (chunk.trim()) aiChunks.push({ id: `chunk_${chunkIndex++}`, text: chunk.trim() }); chunk = ''; currentDate = '' }
+    for (const message of messages) {
+      if (isExportPlaceholder(message.text) || unsafeContent.test(message.text)) continue
+      const safeText = redactPii(redactKnownNames(normalizeExportText(message.text))).replace(/\s+/g, ' ').trim().slice(0, 4000)
+      if (!safeText) continue
+      const line = `${message.dateKey === currentDate ? '' : `[${message.dateKey}]\n`}${speakerAliases.get(message.sender) ?? 'Someone'}: ${safeText}\n`
+      if (chunk.length + line.length > 160000) flush()
+      if (message.dateKey !== currentDate) { chunk += `[${message.dateKey}]\n`; currentDate = message.dateKey }
+      chunk += `${speakerAliases.get(message.sender) ?? 'Someone'}: ${safeText}\n`
+    }
+    flush()
+  }
   let laughMoment: AggregateChat['laughMoment']
   let laughScore = 0
   for (let index = 0; index < messages.length; index++) {
@@ -216,7 +256,7 @@ function aggregate(parsed: ReturnType<typeof parseLines>): AggregateChat {
     chatType: members.length > 2 ? 'group' : 'dm', chatName: members.length > 2 ? 'Your group chat' : 'Your chat',
     range: { start: dateFormat.format(first), end: dateFormat.format(last) },
     totals: { messages: messages.length, words: wordCount, activeDays: days.size, emojis, busiestDay: { date: busiest?.[0] ?? '', count: busiest?.[1] ?? 0 } },
-    members, topWords, topEmojis, topicMoments, laughMoment,
+    members, topWords, topEmojis, topicMoments, laughMoment, aiChunks: includeAiChunks ? aiChunks : undefined,
     longestConversation: longest ? { date: longest.date, count: longest.count, durationMins: Math.max(1, Math.round((longest.end - longest.start) / 60000)) } : undefined,
     mediaPeak: mediaPeak ? { date: mediaPeak[0], count: mediaPeak[1] } : undefined,
     sourceKind: 'upload', thinStats: messages.length < 200 || diagnostics.mediaPct > 70,
@@ -230,7 +270,7 @@ self.onmessage = async (event: MessageEvent<Request>) => {
     const text = await extractText(event.data.file)
     postMessage({ type: 'progress', progress: { percent: 10, processed: 0, total: 0, label: 'Export opened' } })
     const parsed = parseLines(text)
-    const result = aggregate(parsed)
+    const result = aggregate(parsed, event.data.includeAiChunks)
     postMessage({ type: 'done', result, diagnostics: parsed.diagnostics })
   } catch (error) { postMessage({ type: 'error', message: error instanceof Error ? error.message : 'P-100: The export could not be read.' }) }
 }

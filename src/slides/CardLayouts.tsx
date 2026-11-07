@@ -34,7 +34,7 @@ function Versus({ headline, referenced, roast, members }: LayoutProps) {
   const ordered = [...referenced].sort((a, b) => (a.context?.rank ?? 99) - (b.context?.rank ?? 99)).slice(0, 2)
   return <div className="slide slide--rank"><div className="slide__topline"><span>TWO OF DEM</span><Zap /></div><h2>{headline}</h2><div className="duel">{ordered.map((fact,i)=>{ const member = memberFor(fact, members); return <div className={i===0?'is-winner':''} key={fact.id}>{member && <MemberCharacter member={member} size="md" />}<span>{member?.name ?? 'Member'}</span><strong>{format(fact.value)}</strong><small>{fact.detail}</small></div> })}</div><p className="slide__roast">{roast}</p></div>
 }
-function Quote({ headline, referenced, roast }: LayoutProps) { return <div className="slide slide--quote"><div className="slide__topline"><span>WETIN ENTER CHAT</span><QuoteIcon /></div><div className="quote-mark">“</div><h2>{headline}</h2><div className="quote-detail">{referenced[0]?.detail}</div><p className="slide__roast">{roast}</p></div> }
+function Quote({ headline, referenced, roast }: LayoutProps) { const fact=referenced[0]; const isContext=fact?.kind==='topic_context'||['recurring_theme','running_joke','shared_habit','group_dynamic','memorable_moment'].includes(fact?.kind??''); return <div className="slide slide--quote"><div className="slide__topline"><span>WETIN REALLY HAPPEN</span><QuoteIcon /></div><div className="quote-mark">“</div><h2>{headline}</h2><div className="quote-detail">{isContext?fact?.value:fact?.detail}</div><p className="slide__roast">{roast}</p></div> }
 function Timeline({ headline, referenced, roast, members }: LayoutProps) {
   const fact = referenced[0]
   const featured = memberFor(fact, members)
@@ -193,11 +193,12 @@ function GroupLanguage({ referenced, roast }: LayoutProps) {
 function TimeCapsule({ referenced, roast }: LayoutProps) {
   const find = (kind: string) => referenced.find((fact) => fact.kind === kind)
   const byId = (id: string) => referenced.find((fact) => fact.id === id)
+  const context = (fact?: Fact) => fact && !String(fact.value).includes('needs the AI context pass') ? String(fact.value) : undefined
   const busiest = find('busiest_day'), longest = find('longest_conversation'), media = find('media_peak')
   const busiestTopic = byId('busiest_day_topic'), longestTopic = byId('longest_conversation_topic'), mediaTopic = byId('media_peak_topic')
   return <div className="slide group-card group-card--time">
     <div className="group-kicker"><span>08</span><span>The moments that defined us</span><Clock3 /></div><h2>The dates,<br />with the missing context.</h2>
-    <div className="time-spine"><i /><div><small>Most active day</small><strong>{busiest?.detail ?? 'The busiest day'} · {format(busiest?.value ?? 0)} messages</strong><span>{String(busiestTopic?.value ?? 'No safe readable message was available for this day.')}</span></div><div><small>Longest chat run</small><strong>{longest?.detail ?? 'One very long session'} · {format(longest?.value ?? 0)} messages</strong><span>{String(longestTopic?.value ?? 'No safe readable exchange was available for this run.')}</span></div>{Number(media?.value ?? 0) > 4 && <div><small>Busiest media day</small><strong>{media?.detail ?? 'Across the year'} · {format(media?.value ?? 0)} media drops</strong><span>{String(mediaTopic?.value ?? 'The export recorded the media, but not enough readable text around it.')}</span></div>}</div>
+    <div className="time-spine"><i /><div><small>Most active day</small><strong>{busiest?.detail ?? 'The busiest day'} · {format(busiest?.value ?? 0)} messages</strong>{context(busiestTopic) && <span>{context(busiestTopic)}</span>}</div><div><small>Longest chat run</small><strong>{longest?.detail ?? 'One very long session'} · {format(longest?.value ?? 0)} messages</strong>{context(longestTopic) && <span>{context(longestTopic)}</span>}</div>{Number(media?.value ?? 0) > 4 && <div><small>Busiest media day</small><strong>{media?.detail ?? 'Across the year'} · {format(media?.value ?? 0)} media placeholders</strong>{context(mediaTopic) && <span>{context(mediaTopic)}</span>}</div>}</div>
     <p className="group-caption">{roast}</p>
   </div>
 }
