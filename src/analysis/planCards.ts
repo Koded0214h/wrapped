@@ -1,4 +1,5 @@
 import type { Card, Fact, LayoutType, Member } from './types'
+import { isPendingContext, isTiedForFirst } from './fairness'
 
 const blockedKinds = new Set(['health', 'religion', 'sexuality', 'ethnicity', 'finances', 'romance_group', 'explicit', 'harassment', 'quiet_member'])
 const vagueCardCopy = /the final verdict is in|main character|\benergy\b|\bvibes?\b|\bchaos\b|\biconic\b|\bloud\b|understood the assignment|\beconomy\b|\bdepartment\b|\bmovement\b|\breceipts\b|\bevidence\b|\bcertified\b|\bplot twist\b|admin powers|carried the group/i
@@ -66,7 +67,9 @@ function buildCandidates(facts: Fact[]): Candidate[] {
   const memberCount = Math.max(1, ...memberFacts.map((fact) => fact.context?.outOf ?? 0))
   const unkindForQuietMembers = new Set(['slow_reply', 'longest_silence', 'hard_to_impress'])
   const byKind = new Map<string, Fact[]>()
-  facts.filter((fact) => presentation[fact.kind] && fact.kind !== 'verdict' && !blockedKinds.has(fact.kind) && !(unkindForQuietMembers.has(fact.kind) && (fact.context?.activitySharePct ?? 100) < Math.max(3, 20 / memberCount))).forEach((fact) => byKind.set(fact.kind, [...(byKind.get(fact.kind) ?? []), fact]))
+  // No card for a zero, a shared first place, or a "disappearance" shorter than a day.
+  const tiedKinds = new Set(facts.filter((fact) => fact.memberIds.length > 0 && isTiedForFirst(fact)).map((fact) => fact.kind))
+  facts.filter((fact) => presentation[fact.kind] && fact.value !== 0 && !tiedKinds.has(fact.kind) && !(fact.kind === 'longest_silence' && Number(fact.value) < 24) && fact.kind !== 'verdict' && !blockedKinds.has(fact.kind) && !(unkindForQuietMembers.has(fact.kind) && (fact.context?.activitySharePct ?? 100) < Math.max(3, 20 / memberCount))).forEach((fact) => byKind.set(fact.kind, [...(byKind.get(fact.kind) ?? []), fact]))
   return [...byKind.entries()].map(([kind, kindFacts]) => {
     const ordered = [...kindFacts].sort((a, b) => (a.context?.rank ?? 99) - (b.context?.rank ?? 99) || storyScore(b) - storyScore(a))
     const primary = ordered[0]
@@ -170,7 +173,7 @@ export function planGroupCards(facts: Fact[]): Card[] {
   const top = (kind: string) => factsOf(facts, [kind], 1)[0]
   const memberEvidence = facts.filter((fact) => fact.memberIds.length > 0)
   const plot = [...memberEvidence]
-    .filter((fact) => ['night_share', 'night_activity', 'starter_share', 'media_rate', 'avg_message_words', 'replies_received', 'longest_silence'].includes(fact.kind))
+    .filter((fact) => ['night_share', 'night_activity', 'starter_share', 'media_rate', 'avg_message_words', 'replies_received', 'longest_silence'].includes(fact.kind) && fact.value !== 0)
     .sort((a, b) => (b.context?.magnitude === 'wild' ? 18 : b.context?.magnitude === 'clear' ? 8 : 0) + b.surpriseScore - ((a.context?.magnitude === 'wild' ? 18 : a.context?.magnitude === 'clear' ? 8 : 0) + a.surpriseScore))[0]
   const plotCopy = plotTwistCopy(plot)
   const cards: Card[] = [

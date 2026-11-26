@@ -1,54 +1,35 @@
 import { useEffect, useState } from 'react'
-import { Building2, Check, CreditCard, LockKeyhole, RotateCcw, Smartphone } from 'lucide-react'
+import { Check, CreditCard, LockKeyhole, RotateCcw } from 'lucide-react'
 import { Modal } from './Modal'
 import { Button } from './Button'
 import { useApp, type Purchase } from '../store/useApp'
-import { getSessionId, track, trackError } from '../lib/telemetry'
+import { track, trackError } from '../lib/telemetry'
+import { postJson, recoverPurchase, rememberPendingPayment } from '../lib/payments'
+import { getPurchaseId } from '../lib/purchaseId'
 import { brand } from '../config/brand'
-import { appConfig } from '../config/appConfig'
-import { planAnalysisWithAi } from '../analysis/aiPlanner'
-
-const productNames: Record<Purchase, string> = { core: 'Full story unlock', everything: 'Everything pack', theme: 'Premium theme', font: 'Premium font', savage: 'Savage mode', watermark: 'Watermark removal', awards: 'Bonus award cards' }
-const prices: Record<Purchase, { usd: string; ngn: string }> = { core: { usd: '$1.99', ngn: '₦1,500' }, everything: { usd: '$3.99', ngn: '₦3,200' }, theme: { usd: '$0.99', ngn: '₦800' }, font: { usd: '$0.99', ngn: '₦800' }, savage: { usd: '$0.99', ngn: '₦800' }, watermark: { usd: '$0.99', ngn: '₦800' }, awards: { usd: '$0.99', ngn: '₦800' } }
-type Channel = 'card' | 'bank' | 'ussd'
-
-async function post(path: string, payload: object) {
-  const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
-  const result = await response.json()
-  if (!response.ok) throw new Error(String(result.error || 'C-301: Checkout failed.'))
-  return result
-}
+import { products } from '../config/products'
 
 export function Checkout({ purchase, onClose }: { purchase: Purchase; onClose: () => void }) {
-  const unlock = useApp((s) => s.unlock)
-  const analysis = useApp((s) => s.analysis)
-  const setAnalysis = useApp((s) => s.setAnalysis)
-  const [currency, setCurrency] = useState<'usd' | 'ngn'>('ngn')
-  const [channel, setChannel] = useState<Channel>('card')
+  const { unlock, setTheme, setFont, setSavage } = useApp()
   const [email, setEmail] = useState('')
   const [reference, setReference] = useState('')
   const [recovering, setRecovering] = useState(false)
+  const [restored, setRestored] = useState<Purchase | null>(null)
   const [status, setStatus] = useState<'ready' | 'paying' | 'done'>('ready')
   const [error, setError] = useState('')
-  useEffect(() => { track('checkout_opened', { method: channel, product: purchase }) }, [channel, purchase])
-
-  const generatePaidCards = async () => {
-    if (!appConfig.aiPlanner || !analysis) return
-    try {
-      const planned = await planAnalysisWithAi(analysis)
-      if (planned !== analysis) setAnalysis(planned)
-    } catch (caught) { trackError(caught, { step: 'ai-plan' }) }
-  }
+  const product = products[purchase]
+  const isStyle = purchase === 'theme' || purchase === 'font' || purchase === 'savage'
+  useEffect(() => { track('checkout_opened', { product: purchase }) }, [purchase])
 
   const pay = async () => {
     setStatus('paying'); setError('')
     try {
-      const result = await post('/api/payments/init', { product: purchase, currency: currency.toUpperCase(), channel, email, sessionId: getSessionId() })
+      const result = await postJson('/api/payments/init', { product: purchase, currency: 'NGN', email, sessionId: getPurchaseId() })
       setReference(result.reference)
       if (result.mock) {
-        await post('/api/payments/mock-complete', { reference: result.reference })
-        unlock(purchase); await generatePaidCards(); setStatus('done'); track('payment_succeeded', { channel, currency }); track('unlock_confirmed', { via: 'webhook' })
-      } else location.assign(result.authorizationUrl)
+        await postJson('/api/payments/mock-complete', { reference: result.reference })
+        unlock(purchase); setStatus('done'); track('payment_succeeded', { channel: 'mock', currency: 'ngn' })
+      } else { rememberPendingPayment(result.reference); location.assign(result.checkoutUrl) }
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'C-301: Checkout failed.'
       setError(message); setStatus('ready'); track('payment_failed', { reason: message.match(/[A-Z]-\d{3}/)?.[0] || 'C-301' }); trackError(caught, { step: 'checkout' })
@@ -56,24 +37,24 @@ export function Checkout({ purchase, onClose }: { purchase: Purchase; onClose: (
   }
   const recover = async () => {
     setStatus('paying'); setError(''); track('recovery_started')
-    try { await post('/api/payments/recover', { reference, sessionId: getSessionId() }); unlock('core'); await generatePaidCards(); setStatus('done'); track('recovery_succeeded'); track('unlock_confirmed', { via: 'recovery' }) }
+    try { const result = await recoverPurchase(reference); unlock(result.product); setRestored(result.product); setStatus('done'); track('recovery_succeeded') }
     catch (caught) { const message = caught instanceof Error ? caught.message : 'K-401: Payment not found.'; setError(message); setStatus('ready'); track('unlock_failed', { code: 'K-401' }) }
   }
+  const useFreeStyle = () => { setTheme('sunset'); setFont('bricolage'); setSavage(false); onClose() }
   const close = () => { if (status !== 'done') track('checkout_abandoned', { product: purchase }); onClose() }
 
-  return <Modal title={status === 'done' ? 'You’re in!' : recovering ? 'Paid but still locked?' : 'Unlock the good part'} onClose={close}>
-    {status === 'done' ? <div className="checkout-success"><span><Check /></span><h3>{productNames[purchase]} unlocked</h3><p>Saved on this device. Keep your reference if you switch browsers.</p>{reference && <code>{reference}</code>}<Button wide onClick={onClose}>Continue</Button></div>
-      : recovering ? <div className="checkout"><p>Enter the reference from your payment receipt. We’ll verify it with the provider and restore access.</p><label>Payment reference<input value={reference} onChange={(event) => setReference(event.target.value.slice(0, 40))} placeholder="cw_..." /></label>{error && <p className="form-error">{error}</p>}<Button wide onClick={recover} disabled={status === 'paying' || !reference}>{status === 'paying' ? 'Checking…' : 'Restore my unlock'}</Button><button className="text-button" onClick={() => { setRecovering(false); setError('') }}>Back to checkout</button></div>
+  return <Modal title={status === 'done' ? 'You’re in!' : recovering ? 'Paid but still locked?' : 'Make it yours'} onClose={close}>
+    {status === 'done' ? <div className="checkout-success"><span><Check /></span><h3>{products[restored ?? purchase].name} unlocked</h3><p>Saved on this device. Keep your reference if you switch browsers.</p>{reference && <code>{reference}</code>}<Button wide onClick={onClose}>Continue</Button></div>
+      : recovering ? <div className="checkout"><p>Enter your reference (starts with cw_) or the Bachs payment ID (starts with chk_).</p><label>Payment reference<input value={reference} onChange={(event) => setReference(event.target.value.trim().slice(0, 80))} placeholder="cw_..." /></label>{error && <p className="form-error">{error}</p>}<Button wide onClick={recover} disabled={status === 'paying' || !reference}>{status === 'paying' ? 'Checking…' : 'Restore my unlock'}</Button><button className="text-button" onClick={() => { setRecovering(false); setError('') }}>Back to checkout</button></div>
       : <div className="checkout">
-        <div className="currency-toggle"><button className={currency === 'ngn' ? 'is-active' : ''} onClick={() => setCurrency('ngn')}>NGN</button><button className={currency === 'usd' ? 'is-active' : ''} onClick={() => setCurrency('usd')}>USD</button></div>
-        <div className="checkout__product"><span>{productNames[purchase]}</span><strong>{prices[purchase][currency]}</strong></div>
+        <div className="checkout__product"><span>{product.name}</span><strong>{product.price}</strong></div>
         <label>Receipt email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
-        {currency === 'ngn' && <div className="channel-picker" role="group" aria-label="Payment method"><button className={channel === 'card' ? 'is-active' : ''} onClick={() => setChannel('card')}><CreditCard />Card</button><button className={channel === 'bank' ? 'is-active' : ''} onClick={() => setChannel('bank')}><Building2 />Bank</button><button className={channel === 'ussd' ? 'is-active' : ''} onClick={() => setChannel('ussd')}><Smartphone />USSD</button></div>}
-        <ul><li><Check /> One-time purchase</li><li><Check /> Unlock saved on this device</li><li><LockKeyhole /> No chat text is sent with payment</li></ul>
+        <ul><li><Check /> One-time purchase</li><li><Check /> Works on every chat on this device</li><li><LockKeyhole /> No chat text is sent with payment</li></ul>
         {error && <p className="form-error">{error}</p>}
-        <Button wide onClick={pay} disabled={status === 'paying' || !email}>{status === 'paying' ? 'Opening secure checkout…' : <><CreditCard size={19} /> Pay {prices[purchase][currency]}</>}</Button>
+        <Button wide onClick={pay} disabled={status === 'paying' || !email}>{status === 'paying' ? 'Opening secure checkout…' : <><CreditCard size={19} /> Pay {product.price}</>}</Button>
+        {isStyle && <button className="text-button" onClick={useFreeStyle}>No thanks, use the free style</button>}
         <button className="recovery-link" onClick={() => { setRecovering(true); setError('') }}><RotateCcw /> Paid but still locked?</button>
-        <small>Card, bank and USSD are processed by Paystack when configured. Local development uses a mock transaction.</small>
+        <small>Payments are processed on Bachs’ secure checkout page. Local development uses a mock transaction.</small>
         <p className="support-line">Need help? <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a> · <a href={`https://wa.me/${brand.supportWhatsApp.replace(/\D/g, '')}`}>WhatsApp support</a></p>
       </div>}
   </Modal>

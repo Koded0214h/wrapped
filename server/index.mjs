@@ -1,13 +1,18 @@
 import http from 'node:http'
-import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, extname, join, resolve } from 'node:path'
 import { BANNED_CARD_COPY, CARD_PLANNER_SYSTEM_PROMPT, CONTEXT_ANALYST_SYSTEM_PROMPT, FULL_CHAT_CHUNK_SYSTEM_PROMPT, FULL_CHAT_SYNTHESIS_SYSTEM_PROMPT } from './aiPrompt.mjs'
 import { createOpenAICardPlannerService } from './services/openaiCardPlanner.mjs'
+import { createBachsService, isPaid } from './services/bachs.mjs'
 
 const port = Number(process.env.PORT || 8787)
-const paymentMode = ['free','mock','paystack'].includes(process.env.VITE_PAYMENT_MODE) ? process.env.VITE_PAYMENT_MODE : 'mock'
+// Refuse to start on a typo: falling back to mock would hand out paid features for nothing.
+if (process.env.VITE_PAYMENT_MODE && !['free','mock','bachs'].includes(process.env.VITE_PAYMENT_MODE)) throw new Error(`VITE_PAYMENT_MODE must be free, mock or bachs (got "${process.env.VITE_PAYMENT_MODE}")`)
+const paymentMode = process.env.VITE_PAYMENT_MODE || 'mock'
+const bachs = createBachsService()
+const returnUrl = process.env.PAYMENT_RETURN_URL || 'https://chat-wrapped.kodedlabs.com/'
 const dbPath = resolve(process.env.DATABASE_PATH || './data/chat-wrapped.sqlite')
 mkdirSync(dirname(dbPath), { recursive: true })
 const db = new DatabaseSync(dbPath)
@@ -25,25 +30,43 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS outreach(id INTEGER PRIMARY KEY, ts TEXT, posts INTEGER, dms INTEGER, replies INTEGER);
   CREATE TABLE IF NOT EXISTS payout_checklist(id INTEGER PRIMARY KEY, provider TEXT UNIQUE, payout_method TEXT, tested INTEGER DEFAULT 0, test_date TEXT);
 `)
+if(!db.prepare('PRAGMA table_info(payments)').all().some(column=>column.name==='product'))db.exec('ALTER TABLE payments ADD COLUMN product TEXT')
+if(!db.prepare('PRAGMA table_info(payments)').all().some(column=>column.name==='provider_id'))db.exec('ALTER TABLE payments ADD COLUMN provider_id TEXT')
 
 const insertEvent = db.prepare('INSERT INTO events(ts,session_id,name,props,app_version,device,os,browser) VALUES(?,?,?,?,?,?,?,?)')
 const insertLog = db.prepare('INSERT INTO payment_log(ts,reference,step,ok,detail) VALUES(?,?,?,?,?)')
 const rate = new Map()
 const forbidden = /(?:\+?\d[\d\s().-]{7,}|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,})/
 const allowedEvents = new Set(['landing_view','chat_type_selected','export_guide_viewed','export_tab_switched','upload_started','upload_failed','parse_completed','parse_failed','story_viewed','card_viewed','paywall_viewed','checkout_opened','checkout_abandoned','payment_succeeded','payment_failed','unlock_confirmed','unlock_failed','recovery_started','recovery_succeeded','theme_changed','upgrade_clicked','card_shared','card_downloaded','hide_names_toggled','savage_toggled','referral_landing','support_clicked','error','timing'])
-const prices = { core: { NGN: 150000, USD: 199 }, everything: { NGN: 320000, USD: 399 }, theme: { NGN: 80000, USD: 99 }, font: { NGN: 80000, USD: 99 }, savage: { NGN: 80000, USD: 99 }, watermark: { NGN: 80000, USD: 99 }, awards: { NGN: 80000, USD: 99 } }
+const prices = { everything: { NGN: 320000, USD: 399 }, theme: { NGN: 80000, USD: 99 }, font: { NGN: 80000, USD: 99 }, savage: { NGN: 80000, USD: 99 }, watermark: { NGN: 80000, USD: 99 }, awards: { NGN: 80000, USD: 99 } }
 
+class HttpError extends Error { constructor(status,message){super(message);this.status=status} }
 function json(res, status, value) { const body=JSON.stringify(value); res.writeHead(status, {'content-type':'application/json','content-length':Buffer.byteLength(body)}); res.end(body) }
 function html(res, status, body) { res.writeHead(status, {'content-type':'text/html; charset=utf-8','content-length':Buffer.byteLength(body)}); res.end(body) }
+function isFile(path) { return existsSync(path)&&statSync(path).isFile() }
+const mimeTypes={'.js':'text/javascript','.css':'text/css','.html':'text/html','.woff2':'font/woff2','.woff':'font/woff','.png':'image/png','.svg':'image/svg+xml'}
 function now() { return new Date().toISOString() }
 function hash(value) { return createHash('sha256').update(String(value).trim().toLowerCase()).digest('hex') }
-function clientIp(req) { return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0] }
-function allowed(req, bucket='default', limit=120) { const key=`${clientIp(req)}:${bucket}`; const current=rate.get(key) || {count:0,until:Date.now()+60000}; if(Date.now()>current.until){current.count=0;current.until=Date.now()+60000} current.count++;rate.set(key,current);return current.count<=limit }
+// X-Forwarded-For is only meaningful when our own proxy appends it, and then only the last entry.
+function clientIp(req) { const forwarded=process.env.TRUST_PROXY==='true'?String(req.headers['x-forwarded-for']||'').split(',').at(-1).trim():'';return forwarded||String(req.socket.remoteAddress||'') }
+const aiLimits={requests:Number(process.env.AI_DAILY_PLAN_LIMIT||200),costUsd:Number(process.env.AI_DAILY_COST_CAP_USD||20),chatChars:Number(process.env.AI_MAX_CHAT_CHARS||4000000),concurrent:Number(process.env.AI_MAX_CONCURRENT||4)}
+const aiUsage={day:'',requests:0,active:0}
+// Free mode has no accounts, so a global ceiling is what bounds the bill.
+async function withAiBudget(work) {
+  const day=now().slice(0,10);if(aiUsage.day!==day){aiUsage.day=day;aiUsage.requests=0}
+  const spent=Number(db.prepare('SELECT COALESCE(SUM(ai_cost_usd),0) total FROM cards_generated WHERE ts>=?').get(day)?.total||0)
+  if(aiUsage.requests>=aiLimits.requests||spent>=aiLimits.costUsd){if(!db.prepare('SELECT id FROM alerts WHERE type=?').get(`ai_daily_cap_${day}`))alert(`ai_daily_cap_${day}`,`${aiUsage.requests} requests, $${spent.toFixed(2)}`);throw new HttpError(429,'A-429: AI planning has reached today\u2019s limit.')}
+  if(aiUsage.active>=aiLimits.concurrent)throw new HttpError(429,'A-429: AI planning is busy. Try again shortly.')
+  aiUsage.requests++;aiUsage.active++
+  try{return await work()}finally{aiUsage.active--}
+}
+function allowed(req, bucket='default', limit=120) { if(rate.size>10000)for(const [key,value] of rate)if(Date.now()>value.until)rate.delete(key);const key=`${clientIp(req)}:${bucket}`; const current=rate.get(key) || {count:0,until:Date.now()+60000}; if(Date.now()>current.until){current.count=0;current.until=Date.now()+60000} current.count++;rate.set(key,current);return current.count<=limit }
 function safeObject(input) { const output={}; if(!input||typeof input!=='object'||Array.isArray(input))return output; for(const [key,value] of Object.entries(input)){ if(!['string','number','boolean'].includes(typeof value)&&value!==null)continue; if(typeof value==='string'&&(value.length>40||forbidden.test(value)))continue; output[key.slice(0,40)]=value } return output }
 function logPayment(reference,step,ok,detail='') { insertLog.run(now(),reference,step,ok?1:0,String(detail).slice(0,120)) }
 
 async function body(req, raw=false, maxBytes=512000) { const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>maxBytes)throw new Error('body too large');chunks.push(chunk)}const buffer=Buffer.concat(chunks);return raw?buffer:JSON.parse(buffer.toString('utf8')||'{}') }
-function adminOk(req,url) { const supplied=req.headers['x-admin-secret']||url.searchParams.get('key');return Boolean(process.env.ADMIN_SECRET&&supplied===process.env.ADMIN_SECRET) }
+function adminOk(req,url) { const secret=process.env.ADMIN_SECRET,supplied=String(req.headers['x-admin-secret']||url.searchParams.get('key')||'');return Boolean(secret)&&timingSafeEqual(Buffer.from(hashExact(supplied)),Buffer.from(hashExact(secret))) }
+function hashExact(value) { return createHash('sha256').update(value).digest('hex') }
 
 async function notify(text) {
   if(!process.env.TELEGRAM_BOT_TOKEN||!process.env.TELEGRAM_CHAT_ID)return false
@@ -92,14 +115,17 @@ async function enrichContextFacts(facts) {
   const cleanFacts=facts.map(fact=>{const {quote,...rest}=fact;return byId.has(fact.id)?{...rest,contextSummary:byId.get(fact.id)}:rest})
   return {facts:[...cleanFacts,...semanticFacts],updates,semanticFacts,tokensIn:generated.tokensIn,tokensOut:generated.tokensOut,latencyMs:generated.latencyMs}
 }
-function safeChatChunks(input){if(!Array.isArray(input))return[];let total=0;const chunks=[];for(const item of input.slice(0,60)){const id=String(item?.id||'');const text=String(item?.text||'');if(!/^chunk_\d+$/.test(id)||!text||text.length>180000)continue;total+=text.length;if(total>7500000)throw new Error('A-506: Full chat input exceeded the safety cap.');chunks.push({id,text})}return chunks}
+function safeChatChunks(input){if(!Array.isArray(input))return[];let total=0;const chunks=[];for(const item of input.slice(0,60)){const id=String(item?.id||'');const text=String(item?.text||'');if(!/^chunk_\d+$/.test(id)||!text||text.length>180000)continue;total+=text.length;if(total>aiLimits.chatChars)throw new Error('A-506: Full chat input exceeded the safety cap.');chunks.push({id,text})}return chunks}
 async function analyseFullChat(chunks){
   if(!chunks.length)return {semanticFacts:[],tokensIn:0,tokensOut:0,latencyMs:0}
   const findingKinds=['recurring_theme','running_joke','shared_habit','group_dynamic','memorable_moment']
   const itemSchema={type:'object',additionalProperties:false,properties:{kind:{type:'string',enum:findingKinds},summary:{type:'string'},cardAngle:{type:'string'},surpriseScore:{type:'number'}},required:['kind','summary','cardAngle','surpriseScore']}
   const chunkSchema={type:'object',additionalProperties:false,properties:{findings:{type:'array',minItems:0,maxItems:8,items:itemSchema}},required:['findings']}
-  const rawFindings=[];let tokensIn=0,tokensOut=0,latencyMs=0
-  for(let start=0;start<chunks.length;start+=3){const batch=chunks.slice(start,start+3);const results=await Promise.all(batch.map(chunk=>openAIPlanner.generate({systemPrompt:FULL_CHAT_CHUNK_SYSTEM_PROMPT,prompt:`Read this chronological chat part and return only grounded findings.\n\n${chunk.text}`,schema:chunkSchema})));results.forEach((generated,index)=>{tokensIn+=generated.tokensIn;tokensOut+=generated.tokensOut;latencyMs=Math.max(latencyMs,generated.latencyMs);for(const finding of generated.data?.findings??[]){const summary=String(finding?.summary||'').replace(/\s+/g,' ').trim(),cardAngle=String(finding?.cardAngle||'').replace(/\s+/g,' ').trim(),kind=String(finding?.kind||'');if(findingKinds.includes(kind)&&summary.length>=20&&summary.length<=220&&cardAngle.length>=8&&cardAngle.length<=140&&!/\d|\bPerson\b/i.test(`${summary} ${cardAngle}`)&&!unsafeAiContext.test(`${summary} ${cardAngle}`))rawFindings.push({chunkId:batch[index].id,kind,summary,cardAngle,surpriseScore:Math.round(Math.max(0,Math.min(100,Number(finding?.surpriseScore||0))))})}})}
+  const rawFindings=[];let tokensIn=0,tokensOut=0,latencyMs=0,failedChunks=0
+  for(let start=0;start<chunks.length;start+=3){const batch=chunks.slice(start,start+3);const results=await Promise.allSettled(batch.map(chunk=>openAIPlanner.generate({systemPrompt:FULL_CHAT_CHUNK_SYSTEM_PROMPT,prompt:`Read this chronological chat part and return only grounded findings.\n\n${chunk.text}`,schema:chunkSchema})));results.forEach((result,index)=>{if(result.status==='rejected'){failedChunks++;console.error(result.reason);return}const generated=result.value;tokensIn+=generated.tokensIn;tokensOut+=generated.tokensOut;latencyMs=Math.max(latencyMs,generated.latencyMs);for(const finding of generated.data?.findings??[]){const summary=String(finding?.summary||'').replace(/\s+/g,' ').trim(),cardAngle=String(finding?.cardAngle||'').replace(/\s+/g,' ').trim(),kind=String(finding?.kind||'');if(findingKinds.includes(kind)&&summary.length>=20&&summary.length<=220&&cardAngle.length>=8&&cardAngle.length<=140&&!/\d|\bPerson\b/i.test(`${summary} ${cardAngle}`)&&!unsafeAiContext.test(`${summary} ${cardAngle}`))rawFindings.push({chunkId:batch[index].id,kind,summary,cardAngle,surpriseScore:Math.round(Math.max(0,Math.min(100,Number(finding?.surpriseScore||0))))})}})}
+  // One bad part should not throw away the rest, but a total failure is a failure.
+  if(failedChunks===chunks.length)throw new Error('A-507: AI could not read any part of the chat.')
+  if(failedChunks)alert('ai_partial_chat',`${failedChunks} of ${chunks.length} parts failed`)
   if(!rawFindings.length)return {semanticFacts:[],tokensIn,tokensOut,latencyMs}
   const synthesisItem={type:'object',additionalProperties:false,properties:{sourceChunkIds:{type:'array',minItems:1,maxItems:12,items:{type:'string'}},kind:{type:'string',enum:findingKinds},summary:{type:'string'},cardAngle:{type:'string'},surpriseScore:{type:'number'}},required:['sourceChunkIds','kind','summary','cardAngle','surpriseScore']}
   const synthesisSchema={type:'object',additionalProperties:false,properties:{findings:{type:'array',minItems:8,maxItems:18,items:synthesisItem}},required:['findings']}
@@ -109,7 +135,7 @@ async function analyseFullChat(chunks){
   return {semanticFacts,tokensIn,tokensOut,latencyMs}
 }
 async function planWithOpenAI(payload) {
-  const sessionId=String(payload.sessionId||'');if(paymentMode!=='free'&&!db.prepare('SELECT reference FROM unlocks WHERE session_id=?').get(sessionId))throw new Error('A-403: Payment is required before AI generation.')
+  const sessionId=String(payload.sessionId||'').slice(0,60)
   const aiMode=payload.aiMode==='with-quotes'?'with-quotes':'facts-only',safeFacts=safeFactsForAi(payload.facts,aiMode),chatChunks=aiMode==='with-quotes'?safeChatChunks(payload.chatChunks):[]
   let enriched
   if(chatChunks.length){
@@ -141,22 +167,78 @@ function collector(events) {
 
 async function initPayment(payload) {
   if(paymentMode==='free')throw new Error('C-300: Payments are disabled during free launch.')
-  if(paymentMode==='paystack'&&!process.env.PAYSTACK_SECRET_KEY)throw new Error('C-307: Paystack is enabled but its secret key is missing.')
-  const product=String(payload.product||'core'),currency=String(payload.currency||'NGN').toUpperCase(),channel=String(payload.channel||'card')
-  if(!prices[product]?.[currency])throw new Error('unsupported price')
+  if(paymentMode==='bachs'&&!bachs.configured)throw new Error('C-307: Bachs is enabled but BACHS_SECRET_KEY is missing.')
+  const product=String(payload.product||''),currency=String(payload.currency||'NGN').toUpperCase()
+  if(!Object.hasOwn(prices,product)||!prices[product][currency])throw new Error('unsupported price')
   if(currency==='USD'){const check=db.prepare("SELECT tested FROM payout_checklist WHERE provider='international'").get();if(process.env.USD_CHECKOUT_ENABLED!=='true'||!check?.tested)throw new Error('C-306: USD checkout is disabled until a Nigeria payout test is recorded.')}
-  const amount=prices[product][currency],reference=`cw_${Date.now()}_${randomUUID().slice(0,8)}`,email=String(payload.email||'')
+  const amount=prices[product][currency],reference=`cw_${Date.now()}_${randomUUID().replaceAll('-','').slice(0,20)}`,email=String(payload.email||'')
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error('C-302: Enter a valid payment email.')
-  const provider=paymentMode==='paystack'?'paystack':'mock'
-  db.prepare('INSERT INTO payments(ts,reference,provider,channel,amount,currency,status,email_hash,session_id) VALUES(?,?,?,?,?,?,?,?,?)').run(now(),reference,provider,channel,amount,currency,'initialized',hash(email),String(payload.sessionId||''));logPayment(reference,'checkout_init',true,channel)
+  const provider=paymentMode==='bachs'?'bachs':'mock'
+  db.prepare('INSERT INTO payments(ts,reference,provider,channel,amount,currency,status,email_hash,session_id,product) VALUES(?,?,?,?,?,?,?,?,?,?)').run(now(),reference,provider,'hosted',amount,currency,'initialized',hash(email),String(payload.sessionId||'').slice(0,60),product);logPayment(reference,'checkout_init',true,product)
   if(provider==='mock')return {reference,mock:true}
-  const response=await fetch('https://api.paystack.co/transaction/initialize',{method:'POST',headers:{authorization:`Bearer ${process.env.PAYSTACK_SECRET_KEY}`,'content-type':'application/json'},body:JSON.stringify({email,amount,currency,reference,channels:[channel],callback_url:process.env.PAYSTACK_CALLBACK_URL})})
-  const result=await response.json();if(!response.ok||!result.status){logPayment(reference,'provider_init',false,result.message);throw new Error('C-303: Payment provider could not start checkout.')}
-  logPayment(reference,'provider_init',true);return {reference,mock:false,authorizationUrl:result.data.authorization_url,accessCode:result.data.access_code}
+  try{
+    const checkout=await bachs.createCheckout({reference,product,amountSubunits:amount,currency,email,successUrl:returnUrl,cancelUrl:returnUrl})
+    db.prepare('UPDATE payments SET provider_id=? WHERE reference=?').run(checkout.checkoutId,reference);logPayment(reference,'provider_init',true)
+    return {reference,mock:false,checkoutUrl:checkout.checkoutUrl}
+  }catch(error){logPayment(reference,'provider_init',false,error.message);throw new Error('C-303: Payment provider could not start checkout.')}
 }
 
 function grantUnlock(reference,sessionId,via) { const existing=db.prepare('SELECT reference FROM unlocks WHERE reference=?').get(reference);if(existing){logPayment(reference,'duplicate_ignored',true);return false}db.prepare('INSERT INTO unlocks(ts,reference,session_id,granted_via) VALUES(?,?,?,?)').run(now(),reference,sessionId,via);logPayment(reference,'unlock_granted',true,via);return true }
-async function verifyPaystack(reference) { const response=await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,{headers:{authorization:`Bearer ${process.env.PAYSTACK_SECRET_KEY}`}});const result=await response.json();return response.ok&&result.status?result.data:null }
+// The checkout as Bachs reports it is the only thing that marks a payment successful.
+function settle(payment,session) {
+  if(!isPaid(session))return 'pending'
+  const matches=session.reference===payment.reference&&Math.round(Number(session.amount)*100)===payment.amount&&session.currency===payment.currency
+  logPayment(payment.reference,matches?'amount_matched':'amount_mismatch',matches)
+  if(!matches){alert('payment_amount_mismatch',payment.reference);return 'mismatch'}
+  if(payment.status!=='success'){db.prepare("UPDATE payments SET status='success' WHERE reference=?").run(payment.reference);checkCollectionCap()}
+  grantUnlock(payment.reference,payment.session_id,'webhook')
+  return 'paid'
+}
+const findPayment=(id)=>db.prepare('SELECT * FROM payments WHERE reference=? OR provider_id=?').get(id,id)
+async function handleWebhook(req) {
+  const raw=await body(req,true)
+  if(!bachs.verifyWebhook(raw,req.headers)){const type=`webhook_invalid_signature_${now().slice(0,10)}`;if(!db.prepare('SELECT id FROM alerts WHERE type=?').get(type))alert(type,'rejected a delivery');throw new HttpError(400,'invalid_signature')}
+  const event=JSON.parse(raw.toString('utf8')||'{}')
+  if(!['checkout.completed','collection.succeeded'].includes(event.type))return
+  const checkoutId=String(event.data?.checkout_id||''),payment=findPayment(checkoutId)||findPayment(String(event.data?.reference||''))
+  if(!payment){logPayment(checkoutId,'webhook_unknown_payment',false);return}
+  logPayment(payment.reference,'webhook_received',true,event.type)
+  // Anything but a clean answer from Bachs returns 5xx, so the delivery is retried.
+  let outcome
+  try{outcome=settle(payment,await bachs.getCheckout(payment.provider_id||checkoutId))}catch(error){console.error(error);throw new HttpError(502,'lookup_failed')}
+  if(outcome==='pending')throw new HttpError(503,'not_completed_yet')
+}
+
+const maxRecoveries=Number(process.env.MAX_RECOVERIES_PER_REFERENCE||5)
+// "core" was the old full-story unlock. The story is free now, so those buyers get everything.
+function productFor(payment) { if(payment.product==='core')return 'everything';return Object.hasOwn(prices,payment.product||'')?payment.product:undefined }
+async function recoverPayment(payload) {
+  const id=String(payload.reference||'').trim().slice(0,80),sessionId=String(payload.sessionId||'').slice(0,60)
+  let payment=id?findPayment(id):undefined
+  // The browser can get back before the webhook lands, so ask Bachs directly.
+  if(paymentMode==='bachs'&&bachs.configured&&payment?.status!=='success'){
+    const checkoutId=payment?.provider_id||(id.startsWith('chk_')?id:'')
+    const session=checkoutId?await bachs.getCheckout(checkoutId):null
+    if(session){
+      // Restores a paid checkout even if this database was lost.
+      const product=String(session.metadata?.product||'')
+      if(!payment&&isPaid(session)&&Object.hasOwn(prices,product)&&prices[product][session.currency])db.prepare('INSERT INTO payments(ts,reference,provider,channel,amount,currency,status,email_hash,session_id,product,provider_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(now(),String(session.reference),'bachs','hosted',prices[product][session.currency],session.currency,'initialized',hash(session.customer?.email||''),sessionId,product,checkoutId)
+      payment=findPayment(checkoutId)||payment
+      if(payment){settle(payment,session);payment=findPayment(payment.reference)}
+    }
+  }
+  const product=payment?.status==='success'?productFor(payment):undefined
+  if(!product)throw new HttpError(404,'K-401: No successful payment matched that reference.')
+  const reference=payment.reference
+  const unlock=db.prepare('SELECT session_id FROM unlocks WHERE reference=?').get(reference)
+  if(!unlock)grantUnlock(reference,sessionId||payment.session_id,'recovery')
+  else if(sessionId&&unlock.session_id!==sessionId){
+    const used=Number(db.prepare("SELECT COUNT(*) n FROM payment_log WHERE reference=? AND step='moved'").get(reference).n)
+    if(used>=maxRecoveries)throw new HttpError(403,'K-403: This reference has been restored too many times. Contact support.')
+    db.prepare('UPDATE unlocks SET session_id=? WHERE reference=?').run(sessionId,reference);logPayment(reference,'moved',true)
+  }
+  return {ok:true,reference,product}
+}
 
 function summary() {
   const count=(name)=>Number(db.prepare('SELECT COUNT(DISTINCT session_id) n FROM events WHERE name=?').get(name)?.n||0)
@@ -168,8 +250,8 @@ function adminPage(key,page='overview') {
   const data=summary(),nav=['overview','funnel','errors','parsing','payments','cards','alerts']
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));const table=(rows)=>`<table>${rows.map((row,i)=>`<tr>${Object.values(row).map(value=>`<${i?'td':'th'}>${esc(value)}</${i?'td':'th'}>`).join('')}</tr>`).join('')}</table>`
   let content=''
-  const buyers=data.payments.reduce((n,p)=>n+Number(p.buyers),0),targetUsd=1000,targetDate=new Date(process.env.LAUNCH_TARGET_DATE||'2026-12-31T23:59:59Z'),days=Math.max(1,Math.ceil((targetDate-Date.now())/86400000)),usdRevenue=data.payments.filter(p=>p.currency==='USD').reduce((n,p)=>n+Number(p.amount)/100,0),required=Math.max(0,Math.ceil((targetUsd-usdRevenue)/1.99/days)),midLaunch=process.env.MID_LAUNCH_DATE?new Date(process.env.MID_LAUNCH_DATE):null,freeze=Boolean(midLaunch&&Date.now()>=midLaunch.getTime()&&buyers<20)
-  if(page==='overview')content=`${freeze?'<div class="banner">Feature freeze: fix preview and outreach</div>':''}<h1>Launch room</h1><p>Private operational data only—no chat text or names.</p><div class="numbers"><b>${data.funnel[0].count}<small>visits</small></b><b>${buyers}<small>buyers</small></b><b>${data.paidLocked}<small>paid but locked</small></b><b>${required}<small>buyers/day needed</small></b></div>${table([['Step','Sessions'],...data.funnel.map(x=>[x.name,x.count])])}<h2>Outreach</h2><p>${data.outreach.posts} posts · ${data.outreach.dms} DMs · ${data.outreach.replies} replies</p><form method="post" action="/admin/outreach?key=${encodeURIComponent(key)}"><input name="posts" type="number" min="0" placeholder="Posts"><input name="dms" type="number" min="0" placeholder="DMs"><input name="replies" type="number" min="0" placeholder="Replies"><button>Record today</button></form>`
+  const buyers=data.payments.reduce((n,p)=>n+Number(p.buyers),0),revenueNgn=data.payments.filter(p=>p.currency==='NGN').reduce((n,p)=>n+Number(p.amount)/100,0),midLaunch=process.env.MID_LAUNCH_DATE?new Date(process.env.MID_LAUNCH_DATE):null,freeze=Boolean(midLaunch&&Date.now()>=midLaunch.getTime()&&buyers<20)
+  if(page==='overview')content=`${freeze?'<div class="banner">Feature freeze: fix preview and outreach</div>':''}<h1>Launch room</h1><p>Private operational data only—no chat text or names.</p><div class="numbers"><b>${data.funnel[0].count}<small>visits</small></b><b>${buyers}<small>buyers</small></b><b>${data.paidLocked}<small>paid but locked</small></b><b>₦${revenueNgn.toLocaleString()}<small>collected</small></b></div>${table([['Step','Sessions'],...data.funnel.map(x=>[x.name,x.count])])}<h2>Outreach</h2><p>${data.outreach.posts} posts · ${data.outreach.dms} DMs · ${data.outreach.replies} replies</p><form method="post" action="/admin/outreach?key=${encodeURIComponent(key)}"><input name="posts" type="number" min="0" placeholder="Posts"><input name="dms" type="number" min="0" placeholder="DMs"><input name="replies" type="number" min="0" placeholder="Replies"><button>Record today</button></form>`
   else if(page==='funnel')content=`<h1>Funnel</h1>${table([['Step','Sessions'],...data.funnel.map(x=>[x.name,x.count])])}`
   else if(page==='errors')content=`<h1>Errors</h1>${table([['Code','Count'],...data.errors.map(x=>[x.code,x.count])])}`
   else if(page==='parsing')content=`<h1>Parsing</h1>${table([['Format','Clock','Date order','Runs','Average ms','Unknown %'],...data.parsing.map(x=>Object.values(x))])}`
@@ -184,15 +266,18 @@ async function dailySummary() { const data=summary(),revenue=data.payments.map(p
 setInterval(()=>{const date=new Date();if(date.getHours()===8&&date.getMinutes()<5)void dailySummary()},5*60*1000).unref()
 
 const server=http.createServer(async(req,res)=>{
-  const url=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`)
   try {
-    if(url.pathname==='/api/health')return json(res,200,{ok:true,db:true,paymentMode,paystack:paymentMode==='paystack'&&Boolean(process.env.PAYSTACK_SECRET_KEY),openai:Boolean(process.env.OPENAI_API_KEY),telegram:Boolean(process.env.TELEGRAM_BOT_TOKEN)})
+    // The Host header is attacker-controlled, so never build the URL from it.
+    const url=new URL(req.url||'/','http://localhost')
+    if((url.pathname.startsWith('/admin')||url.pathname.startsWith('/api/jobs/')||url.pathname==='/api/outreach')&&!allowed(req,'admin',60))return json(res,429,{error:'rate_limited'})
+    if((url.pathname==='/api/report'||url.pathname==='/api/privacy/delete')&&!allowed(req,'support',10))return json(res,429,{error:'rate_limited'})
+    if(url.pathname==='/api/health')return json(res,200,{ok:true,db:true,paymentMode,bachs:paymentMode==='bachs'&&bachs.configured,openai:Boolean(process.env.OPENAI_API_KEY),bachsWebhook:bachs.webhookConfigured,telegram:Boolean(process.env.TELEGRAM_BOT_TOKEN)})
     if(url.pathname==='/api/collect'&&req.method==='POST'){if(!allowed(req,'collect',240))return json(res,429,{error:'rate_limited'});collector((await body(req)).events);return json(res,202,{accepted:true})}
     if(url.pathname==='/api/payments/init'&&req.method==='POST'){if(!allowed(req,'pay',20))return json(res,429,{error:'rate_limited'});return json(res,200,await initPayment(await body(req)))}
     if(url.pathname==='/api/payments/mock-complete'&&req.method==='POST'){if(paymentMode!=='mock')return json(res,404,{error:'not_found'});const payload=await body(req),payment=db.prepare("SELECT * FROM payments WHERE reference=? AND provider='mock'").get(String(payload.reference));if(!payment)return json(res,404,{error:'C-304'});if(payment.status!=='success'){db.prepare("UPDATE payments SET status='success' WHERE reference=?").run(payment.reference);logPayment(payment.reference,'mock_payment_succeeded',true);checkCollectionCap()}grantUnlock(payment.reference,payment.session_id,'webhook');return json(res,200,{ok:true,reference:payment.reference})}
-    if(url.pathname==='/api/payments/webhook'&&req.method==='POST'){if(paymentMode!=='paystack')return json(res,404,{error:'not_found'});const raw=await body(req,true),signature=String(req.headers['x-paystack-signature']||''),expected=createHmac('sha512',process.env.PAYSTACK_SECRET_KEY||'missing').update(raw).digest('hex');let valid=false;try{valid=signature.length===expected.length&&timingSafeEqual(Buffer.from(signature),Buffer.from(expected))}catch{}const event=JSON.parse(raw.toString('utf8')||'{}'),reference=String(event?.data?.reference||'unknown');logPayment(reference,'webhook_received',true);logPayment(reference,valid?'signature_valid':'signature_invalid',valid);res.writeHead(200);res.end('ok');if(!valid){alert('webhook_invalid_signature',reference);return}if(event.event==='charge.success'){const payment=db.prepare('SELECT * FROM payments WHERE reference=?').get(reference);const matches=payment&&Number(event.data.amount)===payment.amount&&String(event.data.currency)===payment.currency;logPayment(reference,matches?'amount_matched':'amount_mismatch',Boolean(matches));if(!matches){alert('payment_amount_mismatch',reference);return}if(payment.status!=='success'){db.prepare("UPDATE payments SET status='success' WHERE reference=?").run(reference);checkCollectionCap()}grantUnlock(reference,payment.session_id,'webhook')}return}
-    if(url.pathname==='/api/payments/recover'&&req.method==='POST'){if(paymentMode==='free')return json(res,404,{error:'not_found'});const payload=await body(req),reference=String(payload.reference||'');let payment=db.prepare('SELECT * FROM payments WHERE reference=?').get(reference);if(!payment&&paymentMode==='paystack'&&process.env.PAYSTACK_SECRET_KEY){const verified=await verifyPaystack(reference);if(verified?.status==='success')payment={reference,amount:verified.amount,currency:verified.currency,session_id:String(payload.sessionId||''),status:'success'}}if(!payment||payment.status!=='success')return json(res,404,{error:'K-401',message:'No successful payment matched that reference.'});grantUnlock(reference,String(payload.sessionId||payment.session_id),'recovery');return json(res,200,{ok:true,reference})}
-    if(url.pathname==='/api/cards/plan'&&req.method==='POST'){if(!allowed(req,'ai',8))return json(res,429,{error:'rate_limited'});return json(res,200,await planWithOpenAI(await body(req,false,8000000)))}
+    if(url.pathname==='/api/payments/webhook'&&req.method==='POST'){if(paymentMode!=='bachs')return json(res,404,{error:'not_found'});await handleWebhook(req);return json(res,200,{ok:true})}
+    if(url.pathname==='/api/payments/recover'&&req.method==='POST'){if(paymentMode==='free')return json(res,404,{error:'not_found'});if(!allowed(req,'recover',10))return json(res,429,{error:'rate_limited'});return json(res,200,await recoverPayment(await body(req)))}
+    if(url.pathname==='/api/cards/plan'&&req.method==='POST'){if(!allowed(req,'ai',8))return json(res,429,{error:'rate_limited'});const payload=await body(req,false,8000000);return json(res,200,await withAiBudget(()=>planWithOpenAI(payload)))}
     if(url.pathname==='/api/report'&&req.method==='POST'){const payload=await body(req),code=String(payload.code||'U-500').slice(0,10),sessionId=String(payload.sessionId||'').slice(0,40);if(!/^[A-Z]-\d{3}$/.test(code)||!sessionId)return json(res,400,{error:'invalid_report'});db.prepare('INSERT INTO errors(ts,session_id,code,message_short,stack_hash,step,app_version,count) VALUES(?,?,?,?,?,?,?,1)').run(now(),sessionId,code,'user_report','','support','');return json(res,201,{ok:true})}
     if(url.pathname==='/api/privacy/delete'&&req.method==='POST'){const payload=await body(req),reference=String(payload.reference||''),email=String(payload.email||''),payment=db.prepare('SELECT email_hash FROM payments WHERE reference=?').get(reference);if(!payment||payment.email_hash!==hash(email))return json(res,404,{error:'D-404'});db.exec('BEGIN');try{db.prepare('DELETE FROM payment_log WHERE reference=?').run(reference);db.prepare('DELETE FROM unlocks WHERE reference=?').run(reference);db.prepare('DELETE FROM payments WHERE reference=?').run(reference);db.exec('COMMIT')}catch(error){db.exec('ROLLBACK');throw error}return json(res,200,{ok:true})}
     if(url.pathname==='/api/jobs/reconcile'&&req.method==='POST'){if(!adminOk(req,url))return json(res,401,{error:'unauthorized'});const paidLocked=db.prepare("SELECT p.reference FROM payments p LEFT JOIN unlocks u ON p.reference=u.reference WHERE p.status='success' AND u.reference IS NULL").all();const unlockedUnpaid=db.prepare("SELECT u.reference FROM unlocks u LEFT JOIN payments p ON p.reference=u.reference WHERE p.status!='success' OR p.reference IS NULL").all();return json(res,200,{paidLocked,unlockedUnpaid})}
@@ -201,7 +286,10 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname==='/admin/outreach'&&req.method==='POST'){if(!adminOk(req,url))return html(res,401,'<h1>Admin access required</h1>');const form=new URLSearchParams((await body(req,true)).toString());db.prepare('INSERT INTO outreach(ts,posts,dms,replies) VALUES(?,?,?,?)').run(now(),Number(form.get('posts')||0),Number(form.get('dms')||0),Number(form.get('replies')||0));res.writeHead(303,{location:`/admin?key=${encodeURIComponent(String(url.searchParams.get('key')))}&page=overview`});return res.end()}
     if(url.pathname==='/admin/payout'&&req.method==='POST'){if(!adminOk(req,url))return html(res,401,'<h1>Admin access required</h1>');const form=new URLSearchParams((await body(req,true)).toString());db.prepare("INSERT INTO payout_checklist(provider,payout_method,tested,test_date) VALUES('international',?,?,?) ON CONFLICT(provider) DO UPDATE SET payout_method=excluded.payout_method,tested=excluded.tested,test_date=excluded.test_date").run(String(form.get('method')||'').slice(0,40),form.get('tested')==='1'?1:0,String(form.get('date')||'').slice(0,10));res.writeHead(303,{location:`/admin?key=${encodeURIComponent(String(url.searchParams.get('key')))}&page=payments`});return res.end()}
     if(url.pathname==='/admin'){if(!adminOk(req,url))return html(res,401,'<h1>Admin access required</h1>');return html(res,200,adminPage(String(url.searchParams.get('key')),String(url.searchParams.get('page')||'overview')))}
-    const dist=resolve('./dist'),file=url.pathname==='/'?join(dist,'index.html'):resolve(dist,`.${url.pathname}`);if(file.startsWith(`${dist}/`)&&existsSync(file)){const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.woff2':'font/woff2','.png':'image/png'}[extname(file)]||'application/octet-stream';res.writeHead(200,{'content-type':mime});return res.end(readFileSync(file))}if(existsSync(join(dist,'index.html'))){res.writeHead(200,{'content-type':'text/html'});return res.end(readFileSync(join(dist,'index.html')))}json(res,404,{error:'not_found'})
-  } catch(error){console.error(error);json(res,400,{error:error instanceof Error?error.message:'bad_request'})}
+    const dist=resolve('./dist'),file=url.pathname==='/'?join(dist,'index.html'):resolve(dist,`.${url.pathname}`)
+    if(file.startsWith(`${dist}/`)&&isFile(file)){const content=readFileSync(file);res.writeHead(200,{'content-type':mimeTypes[extname(file)]||'application/octet-stream'});return res.end(content)}
+    if(isFile(join(dist,'index.html'))){const content=readFileSync(join(dist,'index.html'));res.writeHead(200,{'content-type':'text/html'});return res.end(content)}
+    json(res,404,{error:'not_found'})
+  } catch(error){console.error(error);if(res.headersSent)return res.end();json(res,error instanceof HttpError?error.status:400,{error:error instanceof Error?error.message:'bad_request'})}
 })
 server.listen(port,'127.0.0.1',()=>console.log(`Chat Wrapped server listening on http://127.0.0.1:${port}`))

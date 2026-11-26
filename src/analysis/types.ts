@@ -23,6 +23,8 @@ export type Member = {
   moneyMentions?: number
   locationQuestions?: number
   explanationCount?: number
+  topPartnerId?: string
+  topPartnerReplies?: number
 }
 
 export type LayoutType = 'bigNumber' | 'leaderboard' | 'versus' | 'quote' | 'timeline' | 'award' | 'wordCloud' | 'heatmap' | 'verdict' | 'cover'

@@ -17,6 +17,7 @@ export function createOpenAICardPlannerService(options = {}) {
   const configuredEffort = options.reasoningEffort ?? process.env.OPENAI_REASONING_EFFORT ?? DEFAULT_REASONING_EFFORT
   const reasoningEffort = allowedEfforts.has(configuredEffort) ? configuredEffort : DEFAULT_REASONING_EFFORT
   const fetchImpl = options.fetchImpl ?? fetch
+  const timeoutMs = Number(options.timeoutMs ?? process.env.OPENAI_TIMEOUT_MS ?? 120000)
 
   return {
     model,
@@ -25,6 +26,7 @@ export function createOpenAICardPlannerService(options = {}) {
       const started = Date.now()
       const response = await fetchImpl('https://api.openai.com/v1/responses', {
         method: 'POST',
+        signal: AbortSignal.timeout(timeoutMs),
         headers: {
           authorization: `Bearer ${apiKey}`,
           'content-type': 'application/json'

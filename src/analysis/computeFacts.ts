@@ -1,4 +1,5 @@
 import type { AggregateChat, Fact, FactContext, Member } from './types'
+import { qualifiesForReplyRank } from './fairness'
 
 type MetricSpec = {
   kind: string
@@ -13,6 +14,11 @@ const round = (value: number, places = 0) => {
   const factor = 10 ** places
   return Math.round(value * factor) / factor
 }
+
+// Parsed exports carry YYYY-MM-DD; people should read "5 Mar 2025".
+export const readableDay = (day: string) => /^\d{4}-\d{2}-\d{2}$/.test(day)
+  ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`))
+  : day
 
 const percent = (part: number, whole: number) => round(part / Math.max(1, whole) * 100, 1)
 
@@ -83,13 +89,16 @@ export function computeFacts(chat: AggregateChat): Fact[] {
     { id: 'avg_messages_day', kind: 'avg_messages_day', memberIds: [], value: round(chat.totals.messages / Math.max(1, chat.totals.activeDays), 1), detail: 'messages per active day', surpriseScore: 56, context: { confidence: 100, humourScore: 76, visualScore: 88 } },
     { id: 'active_days', kind: 'active_days', memberIds: [], value: chat.totals.activeDays, detail: 'days wey chat active', surpriseScore: 42, context: { confidence: 100, humourScore: 50, visualScore: 70 } },
     { id: 'emoji_count', kind: 'emoji_count', memberIds: [], value: chat.totals.emojis, detail: 'emojis', surpriseScore: 48, context: { confidence: 100, humourScore: 70, visualScore: 76 } },
-    { id: 'busiest_day', kind: 'busiest_day', memberIds: [], value: chat.totals.busiestDay.count, detail: chat.totals.busiestDay.date, surpriseScore: 72, context: { confidence: 100, humourScore: 82, visualScore: 90 } }
+    { id: 'busiest_day', kind: 'busiest_day', memberIds: [], value: chat.totals.busiestDay.count, detail: readableDay(chat.totals.busiestDay.date), surpriseScore: 72, context: { confidence: 100, humourScore: 82, visualScore: 90 } }
   ]
   if (chat.thinStats) facts.push({ id: 'thin_stats', kind: 'thin_stats', memberIds: [], value: chat.totals.messages, detail: 'short export', surpriseScore: 0 })
 
   for (const spec of metricSpecs) {
-    const values = chat.members.map((member) => spec.value(member, chat))
-    chat.members.forEach((member, memberIndex) => {
+    const pool = spec.kind === 'fast_reply' || spec.kind === 'slow_reply'
+      ? chat.members.filter((member) => qualifiesForReplyRank(member, chat.totals.messages))
+      : chat.members
+    const values = pool.map((member) => spec.value(member, chat))
+    pool.forEach((member, memberIndex) => {
       const confidence = Math.min(100, Math.round(45 + Math.log10(member.messages + 1) * 17))
       const context = contextFor(values, memberIndex, spec, confidence)
       context.activitySharePct = member.sharePct
@@ -138,12 +147,12 @@ export function computeFacts(chat: AggregateChat): Fact[] {
   }))
   if (chat.longestConversation) facts.push({
     id: 'longest_conversation', kind: 'longest_conversation', memberIds: [], value: chat.longestConversation.count,
-    detail: chat.longestConversation.date, surpriseScore: 78,
+    detail: readableDay(chat.longestConversation.date), surpriseScore: 78,
     context: { confidence: 100, humourScore: 80, visualScore: 96 }
   })
   if (chat.mediaPeak) facts.push({
     id: 'media_peak', kind: 'media_peak', memberIds: [], value: chat.mediaPeak.count,
-    detail: chat.mediaPeak.date, surpriseScore: 68, context: { confidence: 100, humourScore: 76, visualScore: 90 }
+    detail: readableDay(chat.mediaPeak.date), surpriseScore: 68, context: { confidence: 100, humourScore: 76, visualScore: 90 }
   })
   const topicFor = (date?: string) => chat.topicMoments?.find((moment) => moment.date === date)
   const topicFacts = [
@@ -162,7 +171,7 @@ export function computeFacts(chat: AggregateChat): Fact[] {
       kind: 'topic_context',
       memberIds: [],
       value: moment.summary,
-      detail: `representative context from ${moment.date}`,
+      detail: `representative context from ${readableDay(moment.date)}`,
       sourceExcerpt: moment.excerpt,
       surpriseScore: Math.max(58, 68 - index),
       context: { confidence: 70, humourScore: 68, visualScore: 82 }
@@ -198,9 +207,13 @@ export function computeFacts(chat: AggregateChat): Fact[] {
   ]
   const reserved: Fact[] = []
   const reservedIds = new Set(base.map((fact) => fact.id))
-  for (const [kind, limit] of reservationPlan) {
+  // Group layouts each cite their own leader, so those go in before the deeper rankings.
+  const groupLeaders: [string, number][] = chat.chatType === 'group'
+    ? ['member_messages', 'fast_reply', 'night_activity', 'media_dropper', 'conversation_starts', 'laugh_count', 'longest_silence', 'slow_reply', 'replies_received', 'voice_notes', 'link_count', 'conversation_continuations', 'avg_message_words', 'member_words', 'long_explanations', 'sorry_count', 'money_mentions', 'location_questions'].map((kind) => [kind, 1])
+    : []
+  for (const [kind, limit] of [...groupLeaders, ...reservationPlan]) {
     boosted
-      .filter((fact) => fact.kind === kind && !reservedIds.has(fact.id))
+      .filter((fact) => fact.kind === kind && fact.value !== 0 && !reservedIds.has(fact.id))
       .sort((a, b) => (a.context?.rank ?? 999) - (b.context?.rank ?? 999) || b.surpriseScore - a.surpriseScore)
       .slice(0, limit)
       .forEach((fact) => { reserved.push(fact); reservedIds.add(fact.id) })
