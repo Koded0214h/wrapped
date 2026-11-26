@@ -1,9 +1,9 @@
-import type { AnalysisResult } from './types'
+import type { AnalysisResult, Fact } from './types'
 import { idbDelete, idbGet, idbSet } from '../lib/idb'
 import { withoutRawText } from './factPrivacy'
 
 const KEY = 'current'
-export const ANALYSIS_SCHEMA_VERSION = 13
+export const ANALYSIS_SCHEMA_VERSION = 18
 const CACHE_VERSION = ANALYSIS_SCHEMA_VERSION
 type CachedAnalysis = { version: number; analysis: AnalysisResult }
 
@@ -12,16 +12,16 @@ type CachedAnalysis = { version: number; analysis: AnalysisResult }
 const QUOTE = 'chat-wrapped-quote'
 function keepQuote(analysis?: AnalysisResult) {
   try {
-    const quote = analysis?.facts.find((fact) => fact.id === 'laugh_moment')?.detail
-    if (quote) sessionStorage.setItem(QUOTE, JSON.stringify({ quote, range: analysis!.range }))
+    const moment = analysis?.facts.find((fact) => fact.id === 'laugh_moment')
+    if (moment?.detail) sessionStorage.setItem(QUOTE, JSON.stringify({ quote: moment.detail, replies: moment.replies, range: analysis!.range }))
     else sessionStorage.removeItem(QUOTE)
   } catch { /* storage unavailable */ }
 }
 function withQuote(analysis: AnalysisResult): AnalysisResult {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(QUOTE) ?? 'null') as { quote: string; range: AnalysisResult['range'] } | null
+    const saved = JSON.parse(sessionStorage.getItem(QUOTE) ?? 'null') as { quote: string; replies?: Fact['replies']; range: AnalysisResult['range'] } | null
     if (!saved || saved.range.start !== analysis.range.start || saved.range.end !== analysis.range.end) return analysis
-    return { ...analysis, facts: analysis.facts.map((fact) => fact.id === 'laugh_moment' ? { ...fact, detail: saved.quote } : fact) }
+    return { ...analysis, facts: analysis.facts.map((fact) => fact.id === 'laugh_moment' ? { ...fact, detail: saved.quote, replies: saved.replies } : fact) }
   } catch { return analysis }
 }
 

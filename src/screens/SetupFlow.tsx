@@ -12,6 +12,7 @@ import type { ParserDiagnostics } from '../analysis/parseExport'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
 import type { AnalysisResult } from '../analysis/types'
 import { isPendingContext } from '../analysis/fairness'
+import { aiServerAvailable } from '../lib/aiServer'
 
 function Shell({ children, back }: { children: React.ReactNode; back?: () => void }) {
   return <main className="flow"><nav className="flow__nav">{back ? <button className="back-link" onClick={back}><ArrowLeft size={18} /> Back</button> : <Brand />}</nav><div className="flow__body">{children}</div></main>
@@ -34,36 +35,48 @@ export function ExportGuide() {
   useEffect(() => track('export_guide_viewed'), [])
   const switchPlatform = (os:'iphone'|'android') => { setPlatform(os); track('export_tab_switched', { os }) }
   const steps = platform === 'iphone' ? [['Open the chat', 'Tap the name at the top.'], ['Export the chat', 'Scroll down and choose “Export Chat”.'], ['Keep it light', 'Pick “Without Media”, then save the file.']] : [['Open the chat', 'Tap the three-dot menu.'], ['Export the chat', 'Tap More, then “Export chat”.'], ['Keep it light', 'Pick “Without media”, then save the file.']]
-  return <Shell back={() => setStep('choose')}><section className="guide"><div className="guide__intro"><h1>Four taps. No screenshots.</h1><p>Your phone gives you a text export that can be analysed locally.</p></div>
+  return <Shell back={() => setStep('choose')}><section className="guide"><div className="guide__intro"><h1>Four taps. No screenshots.</h1><p>WhatsApp can export any chat as a file. It takes under a minute.</p></div>
     <div className="platform-tabs" role="tablist"><button className={platform === 'iphone' ? 'is-active' : ''} onClick={() => switchPlatform('iphone')}>iPhone</button><button className={platform === 'android' ? 'is-active' : ''} onClick={() => switchPlatform('android')}>Android</button></div>
     <AnimatePresence mode="wait"><motion.ol key={platform} className="guide__steps" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>{steps.map(([title, copy], index) => <li key={title}><span>{index + 1}</span><Smartphone /><div><strong>{title}</strong><p>{copy}</p></div></li>)}</motion.ol></AnimatePresence>
-    <div className="privacy-strip"><LockKeyhole /><span><strong>Raw messages stay local.</strong> {privacyCopy.short}</span></div><Button wide onClick={() => setStep('upload')}>I have the file <ArrowRight size={19} /></Button>
+    <div className="privacy-strip"><LockKeyhole /><span>{privacyCopy.short}</span></div><Button wide onClick={() => setStep('upload')}>I have the file <ArrowRight size={19} /></Button>
   </section></Shell>
 }
 
 export function Upload() {
   const { setStep, setChatType } = useApp(); const input = useRef<HTMLInputElement>(null); const [dragging, setDragging] = useState(false); const [error, setError] = useState('')
-  const next = () => { setPendingAiMode(appConfig.aiMode === 'with-quotes' ? 'with-quotes' : 'facts-only'); setStep(appConfig.aiMode === 'with-quotes' ? 'ai-consent' : 'processing') }
+  const asksConsent = appConfig.aiPlanner && appConfig.aiMode === 'with-quotes'
+  const next = () => { setPendingAiMode('facts-only'); if (!asksConsent) { setStep('processing'); return } void aiServerAvailable().then((available) => setStep(available ? 'ai-consent' : 'processing')) }
   const accept = (file?: File) => {
     if (!file) return
     if (!/\.(txt|zip)$/i.test(file.name)) { setError('U-201 · Choose the .txt or .zip file created by chat export.'); track('upload_failed', { code: 'U-201' }); return }
     setPendingFile(file); track('upload_started', { kind: /\.zip$/i.test(file.name) ? 'zip' : 'txt', fileKb: Math.round(file.size/1024) }); next()
   }
-  const sample = (mock: MockChatId) => { setPendingMock(mock); setChatType(mock === 'couple' ? 'dm' : 'group'); track('upload_started', { kind: `mock-${mock}` }); next() }
-  return <Shell back={() => setStep('guide')}><section className="upload"><h1>Drop the chat. We’ll find the facts.</h1><p>Real exports are parsed in a Web Worker. The full readable export is analysed.</p>
-    <button className={`dropzone ${dragging ? 'is-dragging' : ''}`} onClick={() => input.current?.click()} onDragOver={(e) => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={(e) => { e.preventDefault(); setDragging(false); accept(e.dataTransfer.files[0]) }}><span className="dropzone__icon"><UploadCloud /></span><strong>Choose a .txt or .zip file</strong><small>or drag it right here</small></button>
+  const sample = (mock: MockChatId) => { setPendingMock(mock); setChatType(mock === 'couple' ? 'dm' : 'group'); track('upload_started', { kind: `mock-${mock}` }); setStep('processing') }
+  return <Shell back={() => setStep('guide')}><section className="upload"><h1>Drop your chat.</h1><p>Choose the file WhatsApp exported. Every message gets counted.</p>
+    <button className={`dropzone ${dragging ? 'is-dragging' : ''}`} onClick={() => input.current?.click()} onDragOver={(e) => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={(e) => { e.preventDefault(); setDragging(false); accept(e.dataTransfer.files[0]) }}><span className="dropzone__icon"><UploadCloud /></span><strong>Choose your chat file</strong><small>.txt or .zip, or drag it here</small></button>
     <input ref={input} type="file" accept=".txt,.zip" hidden onChange={(e) => accept(e.target.files?.[0])} />{error && <p className="form-error" role="alert">{error}</p>}
-    <div className="upload__divider"><span>or verify the dynamic planner</span></div><div className="sample-grid">
-      <button onClick={() => sample('friends')}><MessagesSquare /><span><strong>Friends group</strong><small>Night owls and chaos</small></span></button>
+    <div className="upload__divider"><span>No file yet? Try a sample</span></div><div className="sample-grid">
+      <button onClick={() => sample('friends')}><MessagesSquare /><span><strong>Friends group</strong><small>Who dey awake at 3am</small></span></button>
       <button onClick={() => sample('study')}><BookOpenCheck /><span><strong>Study group</strong><small>Deadlines and rescues</small></span></button>
-      <button onClick={() => sample('couple')}><Heart /><span><strong>Couple DM</strong><small>Replies and silences</small></span></button>
+      <button onClick={() => sample('couple')}><Heart /><span><strong>Couple chat</strong><small>Replies and calls</small></span></button>
     </div><p className="upload__privacy"><LockKeyhole size={16} /> {privacyCopy.short}</p>
   </section></Shell>
 }
 
 export function AiConsent() {
   const setStep = useApp((s)=>s.setStep); const [agreed,setAgreed]=useState(false)
-  return <Shell back={()=>setStep('upload')}><section className="consent"><h1>Let AI read the full chat?</h1><p>Chat Wrapped can send the readable message text from this export to AI. Before anything leaves your phone, sender names become labels like “Person A”, while phone numbers, emails and links are removed. Nicknames, and people who never sent a message here, can still appear. This produces much more specific cards.</p><label><input type="checkbox" checked={agreed} onChange={(e)=>setAgreed(e.target.checked)} /><span><strong>I’m okay with the anonymised chat being sent</strong><small>The chat is split into parts, analysed, then discarded after this deck is written. Very long chats are sampled across the whole period.</small></span></label><Button wide disabled={!agreed} onClick={()=>{ setPendingAiMode('with-quotes'); setStep('processing') }}>Read the full chat with AI</Button><button onClick={()=>{ setPendingAiMode('facts-only'); setStep('processing') }}>Use counts only; send no messages</button></section></Shell>
+  return <Shell back={()=>setStep('upload')}><section className="consent">
+    <h1>Let AI read your chat?</h1>
+    <p>This is how your cards can say what you were actually talking about.</p>
+    <ul>
+      <li><strong>Sent:</strong> your messages, with sender names changed to “Person A”, “Person B”.</li>
+      <li><strong>Removed first:</strong> phone numbers, emails and links.</li>
+      <li><strong>Can still show:</strong> nicknames, and people who never sent a message here.</li>
+      <li><strong>Afterwards:</strong> our server does not keep your messages.</li>
+    </ul>
+    <label><input type="checkbox" checked={agreed} onChange={(e)=>setAgreed(e.target.checked)} /><span><strong>I agree to send my chat to AI</strong><small>Very long chats are sampled from across the whole period.</small></span></label>
+    <Button wide disabled={!agreed} onClick={()=>{ setPendingAiMode('with-quotes'); setStep('processing') }}>Make my cards <ArrowRight size={19} /></Button>
+  </section></Shell>
 }
 
 const teasers = ['Reading timestamps and senders…', 'Computing reply times locally…', 'Ranking the surprising facts…', 'Planning a different card deck…']
@@ -88,7 +101,7 @@ export function Processing() {
       else setError('U-202 · The upload session expired. Please choose the export again.')
       return ()=>{ clearInterval(teaserTimer); controller.abort() }
     }
-    getAnalysis(chatType,{...input,signal:controller.signal,onProgress:setProgress,onDiagnostics:(value)=>{diagnostics=value}}).then(async(data)=>{ const parseMs=Math.round(performance.now()-started); if(controller.signal.aborted)return;const completed={...data,aiMode:input.aiMode}; timing('upload_to_parse',parseMs); track('parse_completed',{messageCount:data.totals.messages,memberCount:data.members.length,cards:data.cards.length,parseMs,fileKb:input.file?Math.round(input.file.size/1024):0,format:diagnostics?.format??'mock',clock:diagnostics?.clock??'mock',dateOrder:diagnostics?.dateOrder??'mock',unknownPct:diagnostics?.unknownPct??0,languageHint:diagnostics?.languageHint??'mock'});let planned:AnalysisResult=completed;if(appConfig.aiPlanner){setProgress({percent:98,processed:data.totals.messages,total:data.totals.messages,label:input.aiMode==='with-quotes'?'AI is reading the full chat in parts':'AI is planning the story from the counts'});try{planned=await planAnalysisWithAi(completed,{signal:controller.signal})}catch(reason){if(reason instanceof DOMException&&reason.name==='AbortError')throw reason;trackError(reason,{step:'ai-plan-processing'});planned=safeFallbackDeck(completed)}}clearPendingInput();setAnalysis(planned);setProgress({percent:100,processed:data.totals.messages,total:data.totals.messages,label:'Story ready'});window.setTimeout(()=>setStep('story'),150) }).catch((reason)=>{ if (reason?.name==='AbortError') return; const message=reason instanceof Error?reason.message:'P-100 · This export could not be read.'; setError(message); trackError(reason,{step:'processing'}); track('parse_failed',{code:message.match(/[A-Z]-\d{3}/)?.[0]??'P-100'}) })
+    getAnalysis(chatType,{...input,signal:controller.signal,onProgress:setProgress,onDiagnostics:(value)=>{diagnostics=value}}).then(async(data)=>{ const parseMs=Math.round(performance.now()-started); if(controller.signal.aborted)return;const completed={...data,aiMode:input.aiMode,aiAttempted:Boolean(input.mock)}; timing('upload_to_parse',parseMs); track('parse_completed',{messageCount:data.totals.messages,memberCount:data.members.length,cards:data.cards.length,parseMs,fileKb:input.file?Math.round(input.file.size/1024):0,format:diagnostics?.format??'mock',clock:diagnostics?.clock??'mock',dateOrder:diagnostics?.dateOrder??'mock',unknownPct:diagnostics?.unknownPct??0,languageHint:diagnostics?.languageHint??'mock'});let planned:AnalysisResult=completed;if(appConfig.aiPlanner&&!input.mock&&!(await aiServerAvailable()))planned=safeFallbackDeck(completed);else if(appConfig.aiPlanner&&!input.mock){setProgress({percent:98,processed:data.totals.messages,total:data.totals.messages,label:input.aiMode==='with-quotes'?'AI is reading the full chat in parts':'AI is planning the story from the counts'});try{planned=await planAnalysisWithAi(completed,{signal:controller.signal})}catch(reason){if(reason instanceof DOMException&&reason.name==='AbortError')throw reason;trackError(reason,{step:'ai-plan-processing'});planned=safeFallbackDeck(completed)}}clearPendingInput();setAnalysis(planned);setProgress({percent:100,processed:data.totals.messages,total:data.totals.messages,label:'Story ready'});window.setTimeout(()=>setStep('story'),150) }).catch((reason)=>{ if (reason?.name==='AbortError') return; const message=reason instanceof Error?reason.message:'P-100 · This export could not be read.'; setError(message); trackError(reason,{step:'processing'}); track('parse_failed',{code:message.match(/[A-Z]-\d{3}/)?.[0]??'P-100'}) })
     return ()=>{ clearInterval(teaserTimer); controller.abort() }
   }, [analysis,chatType,setAnalysis,setStep])
   if(error) return <Shell><section className="processing-error"><span><X /></span><h1>We couldn’t read this export.</h1><p>{error}</p><Button onClick={()=>setStep('upload')}>Choose another file</Button><small>Send support only the code above and your session ID—never the chat file.</small></section></Shell>

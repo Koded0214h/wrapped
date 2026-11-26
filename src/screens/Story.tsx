@@ -17,6 +17,7 @@ import { track, timing, trackError } from '../lib/telemetry'
 import { appConfig } from '../config/appConfig'
 import { brand } from '../config/brand'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
+import { aiServerAvailable } from '../lib/aiServer'
 import { ANALYSIS_SCHEMA_VERSION, clearAnalysis } from '../analysis/analysisCache'
 
 const cardLabels: Partial<Record<Card['layout'], string>> = {
@@ -26,6 +27,7 @@ const cardLabels: Partial<Record<Card['layout'], string>> = {
   groupLanguage: "The group's language", timeCapsule: 'The moments that defined us', companyRoast: 'If this group were a company',
   dynamicDuo: 'The dynamic duo', replyRace: 'The reply race', nightShift: 'The night shift', mediaDesk: 'The media department',
   ghostWatch: 'The vanishing act', laughTrack: 'The laugh track', conversationSpark: 'Who keeps pressing start?',
+  highlights: 'Chat highlights', split: 'Who typed more', monthly: 'Month by month', hourly: 'Round the clock', quietGap: 'The quiet stretch', emojiBoard: 'Your top emojis', calls: 'The call log',
   groupPulse: 'The group pulse', memoryVault: 'The memory vault', movieFinale: 'Our group chat: the movie', finalVerdict: 'The final verdict'
 }
 const cardLabel = (layout: Card['layout']) => cardLabels[layout] ?? layout.replace(/([A-Z])/g, ' $1')
@@ -34,10 +36,14 @@ const cardLabel = (layout: Card['layout']) => cardLabels[layout] ?? layout.repla
 const autoPlanningStarted = new WeakSet<object>()
 
 function bonusCards(base: Card[], factIds: string[]): Card[] {
-  return [...base,
+  const extras: Card[] = [
     { id: 'bonus_quick_draw', layout: 'award', factIds: factIds.slice(0, 1), headline: '{{member:self}} collect Sharp Reply Award.', roast: 'Notification never settle, reply don land.', savageRoast: 'This phone no dey leave notification unanswered.', locked: false },
     { id: 'bonus_media', layout: 'award', factIds: factIds.slice(1, 2), headline: '{{member:self}} collect Media Dropper Award.', roast: 'Photo, video and link plenty for this side.', savageRoast: 'Typing na backup plan for this phone.', locked: false }
   ]
+  // The verdict stays last.
+  const verdictAt = base.findIndex((card) => card.layout === 'verdict')
+  const at = verdictAt < 0 ? base.length : verdictAt
+  return [...base.slice(0, at), ...extras, ...base.slice(at)]
 }
 
 export function Story() {
@@ -84,7 +90,9 @@ export function Story() {
   useEffect(() => {
     if (!appConfig.aiPlanner || !analysis || analysis.planner === 'ai' || analysis.aiAttempted || autoPlanningStarted.has(analysis)) return
     autoPlanningStarted.add(analysis)
-    void planAnalysisWithAi(analysis).then((planned) => {
+    void aiServerAvailable().then(async (available) => {
+      if (!available) return
+      const planned = await planAnalysisWithAi(analysis)
       if (planned !== analysis) setAnalysis(planned)
     }).catch((error) => trackError(error, { step: 'ai-plan-free' }))
   }, [analysis, setAnalysis])
@@ -177,6 +185,6 @@ export function Story() {
     </section>
     {customise && <><div className="drawer-backdrop" onClick={() => setCustomise(false)} /><Customiser onClose={() => setCustomise(false)} buy={(item) => { setCustomise(false); setCheckout(item) }} preview={<div className="customiser-preview-theme" style={style}>{renderedCard}</div>} /></>}
     {checkout && !appConfig.freeAccess && <Checkout purchase={checkout} onClose={() => { setCheckout(null) }} />}
-    {exportCard && <div className="export-deck" aria-hidden="true"><div className="export-frame" style={style} ref={exportRef}><CardRenderer key={exportCard.id} {...viewProps(exportCard)} card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} /></div></div>}
+    {exportCard && <div className="export-deck" aria-hidden="true"><div className="export-frame" style={style} ref={exportRef}><CardRenderer still key={exportCard.id} {...viewProps(exportCard)} card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} /></div></div>}
   </main>
 }

@@ -4,6 +4,7 @@ const mediaPlaceholder = /^<?\s*(?:image|video note|video|audio|document|gif|sti
 // Exports made "with media": "IMG-1.jpg (file attached)" on Android, "<attached: 1-PHOTO.jpg>" on iOS.
 const attachedFile = /^(?:(.+?\.\w{2,5}) \(file attached\)|<attached:\s*([^>]+)>)$/i
 const voiceFile = /(?:^ptt-|-audio-|\.opus$)/i
+const stickerFile = /(?:^stk-|-sticker-)[^/]*\.webp$/i
 const deletedPlaceholder = /^(?:this message was deleted|you deleted this message|waiting for this message\.?(?: this may take a while\.?)?)$/i
 const editedPlaceholder = /^<?\s*this message was edited\s*>?$/i
 
@@ -20,6 +21,7 @@ export function readMedia(value: string) {
   return {
     // "<Media omitted>" does not say what was sent, so it never counts as a voice note.
     voice: file ? voiceFile.test(name.trim()) : /audio|voice/i.test(line),
+    sticker: file ? stickerFile.test(name.trim()) : /sticker/i.test(line),
     caption: rest.join('\n').replace(/\s*<this message was edited>$/i, '').trim()
   }
 }
