@@ -592,9 +592,6 @@ svg { flex: 0 0 auto; }
 .word-sculpture { margin-top: 17px; min-height: 148px; display: flex; flex-wrap: wrap; align-content: center; gap: 7px; }
 .word-sculpture > span { padding: 7px 10px; border: 2px solid var(--ink); border-radius: 99px; background: var(--surface); font: 500 calc(1.05rem - var(--word-rank) * .05rem) var(--font-display); box-shadow: 3px 3px 0 var(--ink); transform: rotate(calc((var(--word-rank) - 2) * 1.5deg)); }
 .word-sculpture b { margin-left: 6px; color: var(--blue); font-size: .54rem; }
-.language-translation { padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); background: var(--surface); }
-.language-translation small { font-size: .49rem; font-weight: 500; text-transform: uppercase; }
-.language-translation p { margin-top: 4px; font-size: .62rem; line-height: 1.35; }
 
 .group-card--time h2 { margin: 21px 0 15px; color: var(--text); font-size: 2.7rem; }
 .time-spine { padding-left: 25px; position: relative; display: grid; gap: 10px; }
@@ -606,10 +603,10 @@ svg { flex: 0 0 auto; }
 .time-spine strong { margin-top: 3px; font: 500 .82rem var(--font-display); }
 .time-spine span { margin-top: 2px; color: var(--muted); font-size: .51rem; }
 
-.company-brand { margin: 17px 0 13px; display: flex; align-items: end; justify-content: space-between; }
-.company-brand > span { font: 500 3.35rem/.8 var(--font-display); letter-spacing: -.08em; }
+.company-brand { margin: 17px 0 13px; display: grid; gap: 6px; }
+.company-brand > span { font: 500 2rem/1 var(--font-display); letter-spacing: -.03em; }
 .company-brand > span span { color: var(--coral); font-size: .7rem; vertical-align: top; }
-.company-brand > small { max-width: 112px; text-align: right; font-size: .5rem; font-weight: 500; line-height: 1.25; }
+.company-brand > small { font-size: .62rem; font-weight: 500; line-height: 1.3; }
 .org-chart { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .org-chart > div { min-height: 91px; padding: 10px; border: 2px solid var(--ink); border-radius: 12px; display: flex; align-items: center; gap: 8px; background: var(--surface); box-shadow: 4px 4px 0 var(--ink); }
 .org-chart > div.is-ceo { grid-column: 1 / -1; min-height: 102px; background: var(--yellow); }
@@ -765,7 +762,7 @@ svg { flex: 0 0 auto; }
 .story-slide.is-animated .slide > :nth-child(4) { animation-delay: .3s; }
 .story-slide.is-animated .slide > :nth-child(5) { animation-delay: .4s; }
 .story-slide.is-animated .slide > :nth-child(n+6) { animation-delay: .5s; }
-.story-slide.is-animated .slide h2 { animation-name: card-pop; }
+.story-slide.is-animated .slide h2 { animation: none; }
 .story-slide.is-animated :is(.stat-tiles > div, .number-grid > div, .group-stat-grid > div, .leaderboard > div, .yap-list li, .reply-lanes li, .phrase-chart li, .emoji-board li, .split-legend li, .duel > div, .time-spine > div, .night-roster > div, .org-chart > div, .word-sculpture > span, .movie-cast > div, .avatar-stack > *, .cover__characters > *, .verdict__members > *, .final-cast > *) { animation: card-pop .45s cubic-bezier(.16, 1, .3, 1) backwards; animation-delay: .35s; }
 .story-slide.is-animated :is(.stat-tiles > div, .number-grid > div, .group-stat-grid > div, .leaderboard > div, .yap-list li, .reply-lanes li, .phrase-chart li, .emoji-board li, .split-legend li, .duel > div, .time-spine > div, .night-roster > div, .org-chart > div, .word-sculpture > span, .movie-cast > div, .avatar-stack > *, .cover__characters > *, .verdict__members > *, .final-cast > *):nth-child(2) { animation-delay: .47s; }
 .story-slide.is-animated :is(.stat-tiles > div, .number-grid > div, .group-stat-grid > div, .leaderboard > div, .yap-list li, .reply-lanes li, .phrase-chart li, .emoji-board li, .split-legend li, .duel > div, .time-spine > div, .night-roster > div, .org-chart > div, .word-sculpture > span, .movie-cast > div, .avatar-stack > *, .cover__characters > *, .verdict__members > *, .final-cast > *):nth-child(3) { animation-delay: .59s; }
@@ -784,6 +781,12 @@ svg { flex: 0 0 auto; }
 .emoji-rain { position: absolute; z-index: 5; inset: 0; overflow: hidden; pointer-events: none; }
 .emoji-rain span { position: absolute; top: -12%; opacity: 0; line-height: 1; animation-name: emoji-fall; animation-timing-function: cubic-bezier(.35, .1, .75, 1); animation-fill-mode: forwards; }
 @keyframes emoji-fall { 0% { top: -12%; opacity: 0; rotate: 0deg; } 12% { opacity: 1; } 80% { opacity: 1; } 100% { top: 108%; opacity: 0; rotate: var(--spin); } }
+/* Headlines and punchlines arrive one word at a time. */
+/* Headline size is measured while fitting; an eased font size would read stale. */
+.word { transition: none !important; }
+.story-slide.is-animated .word { display: inline-block; animation: word-in .5s cubic-bezier(.2, 1.4, .4, 1) backwards; animation-delay: calc(.18s + var(--word) * 80ms); }
+.story-slide.is-animated :is(.slide__roast, .group-caption) .word { animation-delay: calc(.7s + var(--word) * 45ms); }
+@keyframes word-in { from { opacity: 0; translate: 0 .55em; rotate: 6deg; scale: .85; } }
 @media (prefers-reduced-motion: reduce) { .story-slide.is-animated * { animation: none !important; } .emoji-rain { display: none; } }
 
 .topic-note { margin-top: 14px; padding: 12px 13px; border-radius: 13px; color: var(--text); background: var(--surface); }
@@ -1282,3 +1285,15 @@ h1, h2 { font-weight: 780; letter-spacing: -.01em; }
 .closer__copy { padding-top: 70px; }
 .closer__copy h2 { font-size: clamp(2.6rem, 6.4vw, 5.2rem); }
 .closer__copy small { width: fit-content; margin: 16px auto 0; padding: 6px 12px; border: 2px solid var(--line); border-radius: 999px; background: #fff8ee; }
+/* The video draws the emoji shower itself. */
+.export-frame--video .emoji-rain { display: none; }
+
+/* KodedLabs sign-off, the last card of every deck. */
+.story-slide--signoff .slide.signoff { display: grid; place-content: center; justify-items: center; gap: 18px; padding: 40px 32px; text-align: center; }
+.signoff .koded-mark { height: 96px; color: var(--text); }
+.signoff h2 { max-width: 15ch; font-size: 1.7rem; line-height: 1.1; }
+.signoff p { font-size: .9rem; font-weight: 500; color: var(--muted); letter-spacing: .02em; }
+.story-slide--signoff .slide-watermark--credit { display: none; }
+.story-slide--signoff.is-animated .koded-mark { animation: signoff-in .7s cubic-bezier(.2, 1.4, .4, 1) backwards; }
+.story-slide--signoff.is-animated .signoff p { animation: signoff-in .5s 1s ease-out backwards; }
+@keyframes signoff-in { from { opacity: 0; scale: .6; rotate: -8deg; } }

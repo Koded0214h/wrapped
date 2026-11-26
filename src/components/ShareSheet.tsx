@@ -86,6 +86,7 @@ export function ShareSheet({ file, caption: suggested, silent, onShared, onClose
 
   return <Modal title={`Share your ${thing}`} onClose={onClose}>
     {video ? <video ref={preview} className="share-preview" src={url || undefined} controls playsInline loop onVolumeChange={(event) => { if (!event.currentTarget.muted) setHeldSilent(false) }} /> : url && <img className="share-preview" src={url} alt="The card you are about to share" />}
+    {silent && <p className="share-sheet__note share-sheet__next">This video has no sound, because it could not be added on this device.</p>}
     {heldSilent && !silent && <p className="share-sheet__note">Tap the speaker on the video to hear it.</p>}
     <label className="share-caption">Caption<textarea rows={3} value={caption} onChange={(event) => setCaption(event.target.value)} /></label>
     <p className="share-sheet__note">{phone ? `Tap an app below, then choose it in your phone’s share menu. The ${thing} and caption go together.` : video ? 'Tap an app. The video is saved and the app opens, ready for you to attach it.' : 'Tap an app. Your card is copied (Instagram gets a download) and the app opens.'}</p>
@@ -96,6 +97,5 @@ export function ShareSheet({ file, caption: suggested, silent, onShared, onClose
     <Button wide variant="quiet" onClick={() => { save(); void copyCaption(); onShared(`${thing}-download`) }} disabled={!url}><Download /> Save {thing}</Button>
     {error && <p className="form-error" role="alert">{error}</p>}
     <p className="share-sheet__note">This may show your friends’ names. Hide names before posting?</p>
-    {silent && <p className="share-sheet__note">This video has no sound, because it could not be added on this device.</p>}
   </Modal>
 }

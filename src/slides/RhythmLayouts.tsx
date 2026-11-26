@@ -5,13 +5,14 @@ import type { DisplayMember } from '../analysis/memberNames'
 import { MemberCharacter } from '../components/MemberCharacter'
 import { CountUp } from './motion'
 import { TopicNote } from './TopicNote'
+import { Words } from './Words'
 import { topicOf } from '../analysis/topics'
 
 type Props = { headline: string; roast: string; referenced: Fact[]; members: DisplayMember[]; facts: Fact[] }
 const format = (value: number | string) => typeof value === 'number' ? new Intl.NumberFormat('en-GB').format(value) : value
 
 function Frame({ label, icon, headline, roast, children }: { label: string; icon: ReactNode; headline: string; roast: string; children: ReactNode }) {
-  return <div className="slide slide--calendar"><div className="slide__topline"><span>{label}</span>{icon}</div><h2>{headline}</h2><div className="calendar-body">{children}</div><p className="slide__roast">{roast}</p></div>
+  return <div className="slide slide--calendar"><div className="slide__topline"><span>{label}</span>{icon}</div><h2><Words>{headline}</Words></h2><div className="calendar-body">{children}</div><p className="slide__roast"><Words>{roast}</Words></p></div>
 }
 
 function Bars({ fact, every }: { fact?: Fact; every: number }) {
