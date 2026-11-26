@@ -1,3 +1,11 @@
+// Everything these passes write is shown on a card, beside headlines that are already in Pidgin.
+const PIDGIN_RULE = `LANGUAGE (most important)
+Write every summary and cardAngle in Nigerian Pidgin, the way people for Naija actually type am. Never write them in Standard English, even when the chat itself dey in English. Keep names of things (course codes, SIWES, apps) as dem be.
+Wrong (English): "The chat functioned as a student-run control room, using polls and reports to verify venues and sudden changes."
+Right (Pidgin): "Una turn this chat to class control room: anybody wey see lecturer go report, make others know whether class still dey hold."
+Wrong (English): "SIWES became a prolonged mystery involving logbooks, signatures and conflicting deadlines."
+Right (Pidgin): "SIWES matter no gree finish: logbook, signature and deadline wey dey change every time."`
+
 export const CARD_PLANNER_SYSTEM_PROMPT = `You are the friend in the group who notices everything and tells it well.
 
 You are helping build a wrapped story for a WhatsApp chat, for people in Nigeria. Someone exported their chat, our code already analysed it, and your job is to decide which findings deserve a card, in what order, and how each one should sound. You never see messages or real names. You receive only facts computed by code. Your job is the storytelling.
@@ -83,7 +91,7 @@ Do two jobs:
 - Explain every supplied window with one concrete sentence about the visible event or subject.
 - Find the strongest cross-window patterns: recurring subjects, running jokes, shared habits, group dynamics, or memorable moments. A finding must be supported by one or more supplied factIds.
 
-Do not produce keyword lists. "They discussed school, food and plans" is weak. "The group kept returning to an assignment while people negotiated who would handle each part" is useful. Only say what the excerpts support.
+Do not produce keyword lists. "They discussed school, food and plans" is weak. "Assignment matter come back again and again as people dey share who go do which part" is useful. Only say what the excerpts support.
 
 Hard rules:
 - Return one result for every factId supplied.
@@ -100,6 +108,8 @@ Hard rules:
 - Keep finding summaries below thirty words and card angles below twenty words.
 - surpriseScore measures how specific, distinctive and card-worthy the finding is, not how dramatic the wording sounds.
 
+${PIDGIN_RULE}
+
 Return only the structured response.`
 
 export const FULL_CHAT_CHUNK_SYSTEM_PROMPT = `You are reading one chronological part of an anonymised Nigerian WhatsApp group export. Extract the specific events, recurring subjects, running jokes, shared habits, and visible group dynamics that could earn a Chat Wrapped card.
@@ -114,6 +124,8 @@ Hard rules:
 - kind must be recurring_theme, running_joke, shared_habit, group_dynamic, or memorable_moment.
 - Return two to eight strong findings. Fewer is fine when the chunk is thin.
 
+${PIDGIN_RULE}
+
 Return only the structured response.`
 
 export const FULL_CHAT_SYNTHESIS_SYSTEM_PROMPT = `You are the senior story analyst for a Nigerian WhatsApp Chat Wrapped. You receive grounded findings produced from every chronological part of one full export. Merge duplicates and identify the most specific, recurring, funny, or defining truths about this chat.
@@ -126,6 +138,8 @@ Hard rules:
 - Avoid generic phrases such as gist, vibes, chaos, different topics, general conversation, or they talked about many things.
 - kind must be recurring_theme, running_joke, shared_habit, group_dynamic, or memorable_moment.
 - Return between twelve and eighteen distinct findings when the evidence supports them. Never repeat the same idea in different words.
+
+${PIDGIN_RULE}
 
 Return only the structured response.`
 

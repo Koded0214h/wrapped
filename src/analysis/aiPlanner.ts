@@ -7,7 +7,7 @@ const MAX_FINDING_CARDS = 5
 export function addFindings(deck: Card[], planned: Card[], facts: Fact[]) {
   const findings = new Set(facts.filter((fact) => fact.id.startsWith('semantic_') || fact.kind === 'topic_context').map((fact) => fact.id))
   const extras = planned.filter((card) => card.layout !== 'verdict' && card.factIds.some((id) => findings.has(id))).slice(0, MAX_FINDING_CARDS).map((card) => ({ ...card, locked: false }))
-  const finale = deck.findIndex((card) => card.layout === 'movieFinale')
+  const finale = deck.findIndex((card) => card.layout === 'movieFinale' || card.layout === 'verdict')
   const at = finale < 0 ? deck.length : finale
   return [...deck.slice(0, at), ...extras, ...deck.slice(at)]
 }
@@ -36,30 +36,6 @@ export async function planAnalysisWithAi(analysis: AnalysisResult, options: { si
   ]
   if (result.fallback || !result.cards?.length) return { ...analysis, aiChunks: undefined, facts, aiAttempted: true }
 
-  // Group chats keep their own deck. AI adds the cards built on things it found in the messages.
-  if (analysis.chatType === 'group') return { ...analysis, aiChunks: undefined, aiAttempted: true, planner: 'ai', facts, cards: addFindings(analysis.cards, result.cards, facts) }
-
-  const cover: Card = {
-    id: 'cover',
-    layout: 'cover',
-    factIds: ['chat_label', 'date_range', 'total_messages'].filter((id) => facts.some((fact) => fact.id === id)),
-    headline: '{{value:chat_label}}',
-    roast: 'AI don read the moments wey you allow. Exact numbers still come from the export.',
-    locked: false
-  }
-  const deterministicVerdict = analysis.cards.find((card) => card.layout === 'verdict' || card.layout === 'finalVerdict')
-  const aiVerdict = result.cards.find((card) => card.layout === 'verdict')
-  const aiInsights = result.cards.filter((card) => card.layout !== 'verdict').map((card) => ({ ...card, locked: false }))
-  return {
-    ...analysis,
-    aiChunks: undefined,
-    aiAttempted: true,
-    planner: 'ai',
-    facts,
-    cards: [
-      cover,
-      ...aiInsights,
-      ...(aiVerdict ? [{ ...aiVerdict, locked: false }] : deterministicVerdict ? [{ ...deterministicVerdict, locked: false }] : [])
-    ]
-  }
+  // Every chat keeps its own deck. AI adds the cards built on things it found in the messages.
+  return { ...analysis, aiChunks: undefined, aiAttempted: true, planner: 'ai', facts, cards: addFindings(analysis.cards, result.cards, facts) }
 }

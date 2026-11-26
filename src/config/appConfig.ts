@@ -18,6 +18,6 @@ export const appConfig = {
 }
 
 export const privacyCopy = {
-  short: privacy === 'local-only' ? 'Your chat never leaves your phone.' : privacy === 'ai-quotes' ? 'Selected excerpts may be sent only after you opt in.' : 'Message text stays on your phone. Only computed facts may be sent for card planning.',
-  processing: privacy === 'local-only' ? 'Everything is happening on this device.' : privacy === 'ai-quotes' ? 'Parsing stays here. Quote sharing requires your permission.' : 'Parsing stays here. Card planning can use computed facts only.'
+  short: privacy === 'local-only' ? 'Your chat never leaves your phone.' : privacy === 'ai-quotes' ? 'Counting happens on your phone. AI reads your messages, with names removed, only after you agree.' : 'Your messages stay on your phone. Only counts and common words are sent to write the cards.',
+  processing: privacy === 'local-only' ? 'Everything is happening on this device.' : privacy === 'ai-quotes' ? 'Counting happens here. AI then reads the chat with names removed.' : 'Counting happens here. Only the results are sent to write your cards.'
 }

@@ -6,7 +6,7 @@ import { Modal } from './components/Modal'
 import { PaymentReturn } from './components/PaymentReturn'
 import { useApp } from './store/useApp'
 import { clearAnalysis, loadAnalysis } from './analysis/analysisCache'
-import { privacyCopy } from './config/appConfig'
+import { appConfig, privacyCopy } from './config/appConfig'
 import { brand } from './config/brand'
 import { setTelemetryStep } from './lib/telemetry'
 
@@ -29,6 +29,6 @@ export default function App() {
     {step === 'ai-consent' && <AiConsent />}
     {step === 'processing' && <Processing />}
     {step === 'story' && <Story />}
-    {privacy && <Modal title="Your chat stays yours" onClose={() => { setPrivacy(false); setDeleted(false) }}><div className="privacy-copy"><p>{privacyCopy.short} The full message text is not saved after aggregate facts are calculated.</p><h3>What we collect</h3><p>Event counts, coarse device type, timings, error codes, payment references, and anonymous session IDs. We never collect chat text, member names, file names, or chat names.</p><h3>What stays local</h3><p>Your analysis is saved in this browser so a refresh or checkout return does not lose it. It includes member names, counts and common words. Use “Hide names” before posting if you do not have everyone’s consent.</p><button className="text-link" onClick={deleteSavedChat}>Delete the chat saved on this device</button>{deleted && <p role="status">Deleted from this device.</p>}<h3>Deletion and NDPA requests</h3><p>Email {brand.supportEmail} with a payment reference. Do not send your chat export.</p></div></Modal>}
+    {privacy && <Modal title="Your chat stays yours" onClose={() => { setPrivacy(false); setDeleted(false) }}><div className="privacy-copy"><p>{privacyCopy.short} The full message text is not saved after aggregate facts are calculated.</p><h3>What we collect</h3><p>Event counts, coarse device type, timings, error codes, payment references, and anonymous session IDs. Those records never contain chat text, member names, file names, or chat names.</p>{appConfig.aiPlanner && appConfig.aiMode === 'with-quotes' && <><h3>AI reading</h3><p>If you agree, your messages go through our server to OpenAI with sender names, phone numbers, emails and links removed. Our server does not keep them.</p></>}<h3>What stays local</h3><p>Your analysis is saved in this browser so a refresh or checkout return does not lose it. It includes member names, counts and common words. Use “Hide names” before posting if you do not have everyone’s consent.</p><button className="text-link" onClick={deleteSavedChat}>Delete the chat saved on this device</button>{deleted && <p role="status">Deleted from this device.</p>}<h3>Deletion and NDPA requests</h3><p>Email {brand.supportEmail} with a payment reference. Do not send your chat export.</p></div></Modal>}
   </>
 }

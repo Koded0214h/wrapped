@@ -24,7 +24,7 @@ describe('dynamic card planning', () => {
     for (const result of [friends, study, couple]) {
       expect(result.facts.length).toBeGreaterThanOrEqual(40)
       expect(result.cards.length).toBeGreaterThanOrEqual(8)
-      expect(result.cards.length).toBeLessThanOrEqual(result.chatType === 'group' ? 20 : 10)
+      expect(result.cards.length).toBeLessThanOrEqual(result.chatType === 'group' ? 20 : 16)
       expect(result.cards[0].layout).toBe(result.chatType === 'group' ? 'groupNumbers' : 'cover')
       expect(result.cards.at(-1)?.layout).toBe(result.chatType === 'group' ? 'finalVerdict' : 'verdict')
       expect(result.cards[0].locked).toBe(false)
@@ -70,7 +70,7 @@ describe('dynamic card planning', () => {
     expect(archetypes).not.toContain('The Reliable Regular')
   })
 
-  it('assigns every member in a large group without looping or duplicating titles', () => {
+  it('gives everyone in a large group a character built from their own numbers', () => {
     const members = Array.from({ length: 250 }, (_, index) => ({
       id: `large_${index}`, name: `Member ${index}`, messages: index + 1, sharePct: .4,
       avgReplyMins: 5, longestSilenceHrs: index, starts: index % 8, laughs: index % 12,
@@ -78,7 +78,11 @@ describe('dynamic card planning', () => {
     }))
     const archetypes = assignArchetypes(members)
     expect(archetypes.size).toBe(members.length)
-    expect(new Set([...archetypes.values()].map((item) => item.title)).size).toBe(members.length)
+    // Headline roles stay one of a kind; habits further down may be shared.
+    // At least the headline roles that this data supports are handed out once each.
+    expect(new Set([...archetypes.values()].map((item) => item.title)).size).toBeGreaterThan(12)
+    expect([...archetypes.values()].some((item) => item.description.startsWith('Showed up with'))).toBe(true)
+    expect([...archetypes.values()].some((item) => /No duplicate casting/.test(item.description))).toBe(false)
   })
 
   it('keeps locked templates free of resolved names and values', async () => {

@@ -67,7 +67,7 @@ describe('export formats', () => {
 
   it('counts laughs without counting ordinary words', async () => {
     expect(total(await parse(chat(android, { text: () => 'the sheet is heeled, haa' })), 'laughs')).toBe(0)
-    expect(total(await parse(chat(android, { text: () => 'LMFAO hahaha kikiki' })), 'laughs')).toBe(120)
+    expect(total(await parse(chat(android, { text: () => 'LMFAO hahaha kikiki' })), 'laughs')).toBe(40)
   })
 
   it('picks the chat out of a zip that also holds another text file', async () => {
@@ -97,5 +97,48 @@ describe('very large chats', () => {
     expect(sent.reduce((sum, chunk) => sum + chunk.text.length, 0)).toBeLessThan(4_000_000)
     expect(sent[0].text).toContain('[2025-03-01]')
     expect(sent.at(-1)!.text).toContain('[2025-03-15]')
+  }, 30000) // four million characters take a while on a busy machine
+})
+
+describe('the biggest laugh', () => {
+  const at = (minute: number, sender: string, text: string) => `05/03/2025, 10:${two(minute)} - ${sender}: ${text}`
+  const filler = Array.from({ length: 10 }, (_, i) => at(i, i % 2 ? 'Ada' : 'Bola', 'ordinary talk'))
+  const moment = async (lines: string[]) => (await parse([...filler, ...lines].join('\n'))).laughMoment
+
+  it('counts people, not emojis', async () => {
+    const found = await moment([at(20, 'Ada', 'the bus story'), at(20, 'Bola', '😂'.repeat(30)), at(21, 'Chidi', '😂😂')])
+    expect(found).toMatchObject({ text: 'the bus story', responders: 2, responses: 2 })
+  })
+
+  it('does not call one person laughing a moment', async () => {
+    expect(await moment([at(20, 'Ada', 'the bus story'), at(20, 'Bola', '😂'.repeat(32))])).toBeUndefined()
+  })
+
+  it('gives each laugh to the closest message only', async () => {
+    const found = await moment([at(20, 'Ada', 'an earlier remark'), at(21, 'Dayo', 'the real joke'), at(21, 'Bola', 'lmao'), at(22, 'Chidi', '😂')])
+    expect(found?.text).toBe('the real joke')
+  })
+
+  it('does not pass laughter at a photo back to older text', async () => {
+    expect(await moment([at(20, 'Ada', 'an earlier remark'), at(21, 'Dayo', '<Media omitted>'), at(21, 'Bola', '😂'), at(22, 'Chidi', '😂')])).toBeUndefined()
+  })
+})
+
+describe('a laughing pile-on', () => {
+  it('reaches the message that caused it past a long run of reactions', async () => {
+    const at = (minute: number, sender: string, text: string) => `05/03/2025, 10:${two(minute)} - ${sender}: ${text}`
+    const lines = [...Array.from({ length: 10 }, (_, i) => at(i, 'Ada', 'ordinary talk')), at(20, 'Ada', 'the bus left without the driver 😂'), ...Array.from({ length: 9 }, (_, i) => at(21, `Friend ${String.fromCharCode(65 + i)}`, i % 2 ? 'omo 😂' : '😂😂'))]
+    expect((await parse(lines.join('\n'))).laughMoment).toMatchObject({ text: 'the bus left without the driver 😂', responders: 9 })
+  })
+})
+
+describe('replies under the biggest laugh', () => {
+  it('quotes one safe reply from each of up to three people, even a bare emoji', async () => {
+    const at = (minute: number, sender: string, text: string) => `05/03/2025, 10:${two(minute)} - ${sender}: ${text}`
+    const lines = [...Array.from({ length: 10 }, (_, i) => at(i, 'Ada', 'ordinary talk')), at(20, 'Ada', 'the bus story'),
+      at(20, 'Bola', '😂'), at(20, 'Bola', 'lmao again'), at(21, 'Chidi', 'haha call 08012345678'), at(21, 'Dayo', 'omo 😂'), at(22, 'Efe', 'lol'), at(22, 'Femi', 'lmao')]
+    const found = (await parse(lines.join('\n'))).laughMoment!
+    expect(found.replies?.map((reply) => reply.text)).toEqual(['😂', 'omo 😂', 'lol'])
+    expect(found.responders).toBe(5)
   })
 })

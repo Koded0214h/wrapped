@@ -1,5 +1,6 @@
 import type { AggregateChat, Fact, FactContext, Member } from './types'
 import { qualifiesForReplyRank } from './fairness'
+import { rhythmFacts, rhythmKinds } from './rhythmFacts'
 
 type MetricSpec = {
   kind: string
@@ -158,14 +159,15 @@ export function computeFacts(chat: AggregateChat): Fact[] {
   const topicFacts = [
     ['busiest_day_topic', chat.totals.busiestDay.date, 'what the busiest day was about'],
     ['longest_conversation_topic', chat.longestConversation?.date, 'what the longest chat run was about'],
-    ['media_peak_topic', chat.mediaPeak?.date, 'what the busiest media day was about']
+    ['media_peak_topic', chat.mediaPeak?.date, 'what the busiest media day was about'],
+    ['month_peak_topic', chat.topicMoments?.find((moment) => moment.date.length === 7)?.date, 'what the busiest month was about']
   ] as const
   topicFacts.forEach(([id, date, detail]) => {
     const topic = topicFor(date)
     if (topic) facts.push({ id, kind: 'topic_context', memberIds: [], value: topic.summary, detail, sourceExcerpt: topic.excerpt, surpriseScore: 70, context: { confidence: 72, humourScore: 65, visualScore: 88 } })
   })
   const namedTopicDates = new Set(topicFacts.map(([, date]) => date).filter(Boolean))
-  ;(chat.topicMoments ?? []).filter((moment) => !namedTopicDates.has(moment.date)).slice(0, 12).forEach((moment, index) => {
+  ;(chat.topicMoments ?? []).filter((moment) => !namedTopicDates.has(moment.date)).slice(0, 11).forEach((moment, index) => {
     facts.push({
       id: `year_context_${index}`,
       kind: 'topic_context',
@@ -179,9 +181,11 @@ export function computeFacts(chat: AggregateChat): Fact[] {
   })
   if (chat.laughMoment) facts.push({
     id: 'laugh_moment', kind: 'laugh_moment', memberIds: chat.laughMoment.memberId ? [chat.laughMoment.memberId] : [],
-    value: chat.laughMoment.responses, detail: chat.laughMoment.text, surpriseScore: 88,
+    value: chat.laughMoment.responders, detail: chat.laughMoment.text, replies: chat.laughMoment.replies, surpriseScore: 88,
     context: { confidence: 76, humourScore: 96, visualScore: 94, gap: chat.laughMoment.responders }
   })
+
+  if (chat.chatType === 'dm') facts.push(...rhythmFacts(chat))
 
   const verdictIsPlaceholder = chat.verdict && (/^the final verdict is in/i.test(chat.verdict.title) || /smaller, honest deck/i.test(chat.verdict.blurb))
   if (chat.verdict && !verdictIsPlaceholder) facts.push({ id: 'verdict', kind: 'verdict', memberIds: [], value: chat.verdict.title, detail: chat.verdict.blurb, surpriseScore: 54, context: { confidence: 90, humourScore: 86, visualScore: 92 } })
@@ -193,7 +197,7 @@ export function computeFacts(chat: AggregateChat): Fact[] {
     upload: ['message_share', 'night_share', 'conversation_starts', 'longest_silence', 'repeated_phrase']
   }
   const boosted = facts.map((fact) => ({ ...fact, surpriseScore: Math.min(99, fact.surpriseScore + ((boosts[chat.sourceKind ?? 'upload'] ?? []).includes(fact.kind) ? 8 : 0)) }))
-  const required = new Set(['chat_label', 'date_range', 'total_messages', 'total_words', 'total_members', 'media_count', 'avg_messages_day', 'active_days', 'emoji_count', 'top_emoji', 'repeated_phrase', 'busiest_day', 'longest_conversation', 'media_peak', 'topic_context', 'laugh_moment', 'verdict', 'thin_stats'])
+  const required = new Set(['chat_label', 'date_range', 'total_messages', 'total_words', 'total_members', 'media_count', 'avg_messages_day', 'active_days', 'emoji_count', 'top_emoji', 'repeated_phrase', 'busiest_day', 'longest_conversation', 'media_peak', 'topic_context', 'laugh_moment', 'verdict', 'thin_stats', ...rhythmKinds])
   const base = boosted.filter((fact) => required.has(fact.kind))
   // Reserve evidence for layouts that need an actual ranking. A global top-60
   // sort can otherwise drop every fast-reply fact and leave an empty card.

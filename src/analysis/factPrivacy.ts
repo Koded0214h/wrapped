@@ -1,10 +1,10 @@
 import type { Fact } from './types'
 
-/** The laugh moment's detail is a real message. It stays in memory on this device. */
+/** The laugh moment quotes real messages. They stay on this device. */
 export function withoutRawText(fact: Fact): Fact {
   const { sourceExcerpt: _sourceExcerpt, ...safe } = fact
   if (safe.kind !== 'laugh_moment') return safe
-  const { detail: _detail, ...rest } = safe
+  const { detail: _detail, replies: _replies, ...rest } = safe
   return rest
 }
 

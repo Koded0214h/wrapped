@@ -1,4 +1,5 @@
 import type { Member } from './types'
+import { MIN_MESSAGES_FOR_HABIT, personalRoles } from './personalRole'
 
 export type MemberArchetype = {
   title: string
@@ -9,6 +10,8 @@ export type MemberArchetype = {
 type Role = MemberArchetype & { value: (member: Member) => number }
 
 const roles: Role[] = [
+  // First, so the person who sends the most stickers is cast as exactly that.
+  { title: 'The Sticker Warrior', description: 'Why type reply when one sticker don already talk am?', emoji: '🥷', value: (m) => m.stickers ?? 0 },
   { title: 'The Voice Note Minister', description: 'Has a microphone and is not afraid to use all of it.', emoji: '🎙️', value: (m) => (m.voiceNotes ?? 0) * 20 + m.mediaCount },
   { title: 'The Midnight Philosopher', description: 'The deeper thoughts arrive after everybody should be asleep.', emoji: '🌙', value: (m) => m.nightMessages / Math.max(1, m.messages) * 100 },
   { title: 'The News Correspondent', description: 'If it happened online, this person has already dropped the link.', emoji: '🗞️', value: (m) => (m.linkCount ?? 0) * 10 + m.mediaCount },
@@ -35,14 +38,12 @@ const roles: Role[] = [
   { title: 'The Context Department', description: 'Never delivers a fact without the complete backstory.', emoji: '🧩', value: (m) => (m.avgMessageWords ?? 0) * 10 + (m.words ?? 0) / 100 }
 ]
 
-const fallbackAdjectives = ['Steady', 'Low-Key', 'Unfiltered', 'Unshakeable', 'Unexpected', 'Essential', 'Unscheduled', 'Original', 'Unmissable', 'Legendary', 'Restless', 'Reliable']
-const fallbackNouns = ['Signal', 'Wildcard', 'Constant', 'Witness', 'Frequency', 'Plot Device', 'Co-Sign', 'Side Quest', 'Broadcast', 'Footnote', 'Catalyst', 'Committee']
-const fallbackTitles = fallbackAdjectives.flatMap((adjective) => fallbackNouns.map((noun) => `The ${adjective} ${noun}`))
-
-function hash(value: string) {
-  let result = 2166136261
-  for (const char of value) result = Math.imul(result ^ char.charCodeAt(0), 16777619)
-  return result >>> 0
+// A headline role is one of a kind, so it has to be earned: some evidence, and enough messages to mean it.
+function earns(role: Role, member: Member, value: number) {
+  if (value <= 0) return false
+  if (role.title === 'The Silent Observer') return true
+  if (role.title === 'The Reply Sniper' && (member.avgReplyMins <= 0 || (member.replyCount ?? 5) < 5)) return false
+  return member.messages >= MIN_MESSAGES_FOR_HABIT
 }
 
 export function assignArchetypes(members: Member[]) {
@@ -51,7 +52,7 @@ export function assignArchetypes(members: Member[]) {
   const pairs = roles.flatMap((role, roleIndex) => {
     const values = members.map(role.value)
     const maximum = Math.max(1, ...values)
-    return members.map((member, memberIndex) => ({ role, member, score: values[memberIndex] / maximum * 100 + (roles.length - roleIndex) * .01 }))
+    return members.flatMap((member, memberIndex) => earns(role, member, values[memberIndex]) ? [{ role, member, score: values[memberIndex] / maximum * 100 + (roles.length - roleIndex) * .01 }] : [])
   }).sort((a, b) => b.score - a.score)
 
   for (const pair of pairs) {
@@ -60,14 +61,8 @@ export function assignArchetypes(members: Member[]) {
     usedTitles.add(pair.role.title)
   }
 
-  members.forEach((member, memberIndex) => {
-    if (assigned.has(member.id)) return
-    const seed = hash(member.id)
-    const start = seed % fallbackTitles.length
-    const title = Array.from({ length: fallbackTitles.length }, (_, offset) => fallbackTitles[(start + offset) % fallbackTitles.length]).find((candidate) => !usedTitles.has(candidate))
-      ?? `${fallbackTitles[start]} · Cast ${memberIndex + 1}`
-    usedTitles.add(title)
-    assigned.set(member.id, { title, description: 'No duplicate casting. This role exists because this person does.', emoji: '✨' })
-  })
+  // Everyone else is described by their own numbers.
+  const personal = personalRoles(members)
+  for (const member of members) if (!assigned.has(member.id)) assigned.set(member.id, personal(member))
   return assigned
 }

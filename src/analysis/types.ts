@@ -20,6 +20,7 @@ export type Member = {
   continuations?: number
   linkCount?: number
   voiceNotes?: number
+  stickers?: number
   moneyMentions?: number
   locationQuestions?: number
   explanationCount?: number
@@ -32,6 +33,7 @@ export type LayoutType = 'bigNumber' | 'leaderboard' | 'versus' | 'quote' | 'tim
   | 'plotTwist' | 'groupLanguage' | 'timeCapsule' | 'companyRoast' | 'dynamicDuo'
   | 'replyRace' | 'nightShift' | 'mediaDesk' | 'ghostWatch' | 'laughTrack' | 'conversationSpark'
   | 'groupPulse' | 'memoryVault' | 'movieFinale' | 'finalVerdict'
+  | 'highlights' | 'split' | 'monthly' | 'hourly' | 'quietGap' | 'emojiBoard' | 'calls'
 
 export type FactContext = {
   rank?: number
@@ -56,7 +58,12 @@ export type Fact = {
   surpriseScore: number
   context?: FactContext
   sourceExcerpt?: string
+  series?: { label: string; value: number }[]
+  /** Real messages. Like the quoted message, these never leave the device. */
+  replies?: LaughReply[]
 }
+
+export type LaughReply = { memberId: string; text: string }
 
 export type Card = {
   id: string
@@ -66,6 +73,17 @@ export type Card = {
   roast: string
   savageRoast?: string
   locked: boolean
+}
+
+export type CallStats = { voice: number; video: number; missed: number; minutes: number }
+
+export type Rhythm = {
+  months: { month: string; count: number }[]
+  hours: number[]
+  weekdays: number[]
+  longestStreak: number
+  quietGap?: { days: number; from: string; to: string }
+  calls?: CallStats
 }
 
 export type AnalysisResult = {
@@ -97,8 +115,9 @@ export type AggregateChat = Omit<AnalysisResult, 'facts' | 'cards'> & {
   longestConversation?: { date: string; count: number; durationMins: number }
   mediaPeak?: { date: string; count: number }
   topicMoments?: { date: string; terms: string[]; summary: string; excerpt?: string }[]
-  laughMoment?: { text: string; memberId: string; responses: number; responders: number; date: string }
+  laughMoment?: { text: string; memberId: string; responses: number; responders: number; date: string; replies?: LaughReply[] }
   verdict?: { title: string; blurb: string }
   sourceKind?: 'friends' | 'study' | 'couple' | 'upload'
   thinStats?: boolean
+  rhythm?: Rhythm
 }

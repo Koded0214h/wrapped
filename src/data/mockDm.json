@@ -1,18 +1,218 @@
 {
   "chatType": "dm",
   "chatName": "Ada & David 💛",
-  "range": { "start": "18 Mar 2026", "end": "28 Oct 2026" },
-  "totals": { "messages": 9832, "words": 68804, "activeDays": 217, "emojis": 6210, "busiestDay": { "date": "7 Aug", "count": 509 } },
+  "range": {
+    "start": "18 Mar 2026",
+    "end": "28 Oct 2026"
+  },
+  "totals": {
+    "messages": 9832,
+    "words": 68804,
+    "activeDays": 217,
+    "emojis": 6210,
+    "busiestDay": {
+      "date": "2026-08-07",
+      "count": 509
+    }
+  },
   "members": [
-    { "id": "ada", "name": "Ada", "messages": 5210, "sharePct": 53, "avgReplyMins": 7, "longestSilenceHrs": 38, "starts": 91, "laughs": 834, "sorrys": 48, "nightMessages": 612, "mediaCount": 219 },
-    { "id": "david", "name": "David", "messages": 4622, "sharePct": 47, "avgReplyMins": 12, "longestSilenceHrs": 72, "starts": 73, "laughs": 702, "sorrys": 63, "nightMessages": 418, "mediaCount": 301 }
+    {
+      "id": "ada",
+      "name": "Ada",
+      "messages": 5210,
+      "sharePct": 53,
+      "avgReplyMins": 7,
+      "longestSilenceHrs": 38,
+      "starts": 91,
+      "laughs": 834,
+      "sorrys": 48,
+      "nightMessages": 612,
+      "mediaCount": 219
+    },
+    {
+      "id": "david",
+      "name": "David",
+      "messages": 4622,
+      "sharePct": 47,
+      "avgReplyMins": 12,
+      "longestSilenceHrs": 72,
+      "starts": 73,
+      "laughs": 702,
+      "sorrys": 63,
+      "nightMessages": 418,
+      "mediaCount": 301
+    }
   ],
-  "nightOwl": { "peakHour": 1, "topMemberId": "ada", "nightMessageCount": 612 },
-  "naija": { "abeg": 211, "wahala": 148, "omo": 336, "nawa": 81, "sha": 229 },
-  "topWords": [{ "word": "baby", "count": 641 }, { "word": "home", "count": 392 }, { "word": "sorry", "count": 111 }, { "word": "food", "count": 298 }, { "word": "sleep", "count": 270 }],
+  "nightOwl": {
+    "peakHour": 1,
+    "topMemberId": "ada",
+    "nightMessageCount": 612
+  },
+  "naija": {
+    "abeg": 211,
+    "wahala": 148,
+    "omo": 336,
+    "nawa": 81,
+    "sha": 229
+  },
+  "topWords": [
+    {
+      "word": "baby",
+      "count": 641
+    },
+    {
+      "word": "home",
+      "count": 392
+    },
+    {
+      "word": "sorry",
+      "count": 111
+    },
+    {
+      "word": "food",
+      "count": 298
+    },
+    {
+      "word": "sleep",
+      "count": 270
+    }
+  ],
   "awards": [
-    { "memberId": "ada", "title": "The First Texter", "reason": "Restarted the chat 91 times" },
-    { "memberId": "david", "title": "The Sorry Machine", "reason": "Said sorry 63 times" }
+    {
+      "memberId": "ada",
+      "title": "The First Texter",
+      "reason": "Restarted the chat 91 times"
+    },
+    {
+      "memberId": "david",
+      "title": "The Sorry Machine",
+      "reason": "Said sorry 63 times"
+    }
   ],
-  "verdict": { "title": "Both of Una Dey Reply", "blurb": "Na only 6 percentage points separate una messages. Both phones put hand for the chat." }
+  "verdict": {
+    "title": "Both of Una Dey Reply",
+    "blurb": "Na only 6 percentage points separate una messages. Both phones put hand for the chat."
+  },
+  "topEmojis": [
+    {
+      "emoji": "😂",
+      "count": 1874
+    },
+    {
+      "emoji": "❤️",
+      "count": 1221
+    },
+    {
+      "emoji": "🥺",
+      "count": 743
+    },
+    {
+      "emoji": "😭",
+      "count": 511
+    },
+    {
+      "emoji": "🙄",
+      "count": 288
+    }
+  ],
+  "rhythm": {
+    "months": [
+      {
+        "month": "2026-03",
+        "count": 510
+      },
+      {
+        "month": "2026-04",
+        "count": 1040
+      },
+      {
+        "month": "2026-05",
+        "count": 1388
+      },
+      {
+        "month": "2026-06",
+        "count": 1211
+      },
+      {
+        "month": "2026-07",
+        "count": 1495
+      },
+      {
+        "month": "2026-08",
+        "count": 1892
+      },
+      {
+        "month": "2026-09",
+        "count": 1306
+      },
+      {
+        "month": "2026-10",
+        "count": 990
+      }
+    ],
+    "hours": [
+      310,
+      260,
+      150,
+      70,
+      30,
+      40,
+      110,
+      260,
+      340,
+      360,
+      390,
+      420,
+      520,
+      470,
+      400,
+      380,
+      420,
+      500,
+      610,
+      720,
+      860,
+      940,
+      760,
+      512
+    ],
+    "weekdays": [
+      1720,
+      1200,
+      1260,
+      1310,
+      1385,
+      1507,
+      1450
+    ],
+    "longestStreak": 46,
+    "quietGap": {
+      "days": 4,
+      "from": "2026-09-12",
+      "to": "2026-09-17"
+    },
+    "calls": {
+      "voice": 61,
+      "video": 18,
+      "missed": 23,
+      "minutes": 2140
+    }
+  },
+  "longestConversation": {
+    "date": "2026-08-07",
+    "count": 509,
+    "durationMins": 640
+  },
+  "topicMoments": [
+    {
+      "date": "2026-08-07",
+      "terms": [],
+      "summary": "Sample: una spend the day dey plan one trip, from who go book transport to where to chop."
+    },
+    {
+      "date": "2026-08",
+      "terms": [],
+      "summary": "Sample: travel plans, food wahala and who forget to call back full this month."
+    }
+  ]
 }

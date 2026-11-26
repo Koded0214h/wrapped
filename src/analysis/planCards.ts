@@ -1,5 +1,6 @@
 import type { Card, Fact, LayoutType, Member } from './types'
 import { isPendingContext, isTiedForFirst } from './fairness'
+import { rhythmCards } from './rhythmFacts'
 
 const blockedKinds = new Set(['health', 'religion', 'sexuality', 'ethnicity', 'finances', 'romance_group', 'explicit', 'harassment', 'quiet_member'])
 const vagueCardCopy = /the final verdict is in|main character|\benergy\b|\bvibes?\b|\bchaos\b|\biconic\b|\bloud\b|understood the assignment|\beconomy\b|\bdepartment\b|\bmovement\b|\breceipts\b|\bevidence\b|\bcertified\b|\bplot twist\b|admin powers|carried the group/i
@@ -144,7 +145,8 @@ export function planCards(facts: Fact[], options: { maxCards?: number; chatType?
   }
   const storyCards = sequence.map((candidate, index) => ({ ...cardFromCandidate(candidate), locked: index > 1 }))
   const closing = verdict ? [{ ...cardFromCandidate({ primary: verdict, facts: [verdict], layout: 'verdict', category: 'totals', family: 'verdict', score: storyScore(verdict) }), locked: true }] : []
-  return [cover, ...storyCards, ...closing].slice(0, maxCards)
+  // The calendar cards sit before the verdict and do not compete for the roast slots.
+  return [cover, ...storyCards.slice(0, maxCards - 1 - closing.length), ...rhythmCards(facts), ...closing]
 }
 
 const groupLayouts = new Set<LayoutType>(['groupNumbers', 'yapLeaderboard', 'characterCast', 'groupAwards', 'socialGraph', 'plotTwist', 'groupLanguage', 'timeCapsule', 'companyRoast', 'dynamicDuo', 'replyRace', 'nightShift', 'mediaDesk', 'ghostWatch', 'laughTrack', 'conversationSpark', 'groupPulse', 'memoryVault', 'movieFinale', 'finalVerdict'])
@@ -191,7 +193,7 @@ export function planGroupCards(facts: Fact[]): Card[] {
     { id: 'group_12_night', layout: 'nightShift', factIds: ids(factsOf(facts, ['night_activity', 'night_share'], 12)), headline: 'The night shift', roast: 'The sun went down. The typing somehow became more urgent.', locked: true },
     { id: 'group_13_media', layout: 'mediaDesk', factIds: ids(factsOf(facts, ['media_dropper', 'link_count', 'voice_notes'], 15)), headline: 'The media department', roast: 'Why explain it when a screenshot, link or voice note can create three new questions?', locked: true },
     { id: 'group_14_ghost', layout: 'ghostWatch', factIds: ids(factsOf(facts, ['longest_silence', 'slow_reply'], 10)), headline: 'The vanishing act', roast: 'Last seen typing. Expected back whenever the topic has completely changed.', locked: true },
-    { id: 'group_15_laugh', layout: 'laughTrack', factIds: ['laugh_moment', ...ids(factsOf(facts, ['laugh_count', 'laugh_rate'], 12))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The biggest laugh response', roast: 'Exports no include reaction counts, so we measured the laugh replies that followed.', locked: true },
+    { id: 'group_15_laugh', layout: 'laughTrack', factIds: ['laugh_moment', ...ids(factsOf(facts, ['laugh_count', 'laugh_rate'], 12))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The biggest laugh response', roast: 'These na replies wey land after am, not reactions. Export no carry reactions.', locked: true },
     { id: 'group_16_spark', layout: 'conversationSpark', factIds: ids(factsOf(facts, ['conversation_starts', 'starter_share'], 12)), headline: 'Who keeps pressing start?', roast: 'Silence enters the room. This person immediately opens a new topic.', locked: true },
     { id: 'group_17_pulse', layout: 'groupPulse', factIds: ['busiest_day', 'avg_messages_day', 'active_days', 'total_messages'].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The group pulse', roast: 'Mostly alive. Occasionally operating at emergency-broadcast levels.', locked: true },
     { id: 'group_18_memory', layout: 'memoryVault', factIds: ['busiest_day', 'longest_conversation', 'media_peak', ...ids(factsOf(facts, ['repeated_phrase', 'top_emoji'], 10))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The memory vault', roast: 'The defining topics, recurring jokes, important milestones, longest conversations and moments worth remembering.', locked: true },

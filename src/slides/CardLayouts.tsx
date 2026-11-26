@@ -8,6 +8,10 @@ import { clearWinner, isPendingContext, qualifiesForReplyRank } from '../analysi
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { MemberCharacter } from '../components/MemberCharacter'
 import { brand } from '../config/brand'
+import { CountUp, EmojiRain, StillContext, useStill } from './motion'
+import { topicOf } from '../analysis/topics'
+import { TopicNote } from './TopicNote'
+import { Calls, EmojiBoard, Highlights, Hourly, Monthly, QuietGap, Split } from './RhythmLayouts'
 
 // What the viewer picked inside a card, so a saved image shows the same thing.
 export type CardView = Record<string, unknown>
@@ -26,11 +30,11 @@ const memberFor = (fact: Fact | undefined, members: Member[]) => members.find((m
 function Cover({ headline, referenced, roast, members }: LayoutProps) {
   const total = referenced.find((fact) => fact.kind === 'total_messages')
   const range = referenced.find((fact) => fact.kind === 'date_range')
-  return <div className="slide slide--cover"><div className="slide__topline"><span>CHAT WRAPPED</span><PartyPopper /></div><div className="cover__title"><h2>{headline}</h2><p>{range?.value}</p></div><div className="cover__characters" aria-label="People inside this chat">{members.slice(0, 8).map((member) => <MemberCharacter key={member.id} member={member} size="md" />)}{members.length > 8 && <b>+{members.length - 8}</b>}</div><div className="cover__count"><strong>{format(total?.value ?? 0)}</strong><span>messages.<br />Na wetin export show be this.</span></div><div className="cover__stamp">{roast}</div></div>
+  return <div className="slide slide--cover"><div className="slide__topline"><span>CHAT WRAPPED</span><PartyPopper /></div><div className="cover__title"><h2>{headline}</h2><p>{range?.value}</p></div><div className="cover__characters" aria-label="People inside this chat">{members.slice(0, 8).map((member) => <MemberCharacter key={member.id} member={member} size="md" />)}{members.length > 8 && <b>+{members.length - 8}</b>}</div><div className="cover__count"><strong><CountUp value={total?.value ?? 0} /></strong><span>messages.<br />Na wetin export show be this.</span></div><div className="cover__stamp">{roast}</div></div>
 }
 function BigNumber({ headline, referenced, roast, members }: LayoutProps) {
   const featured = memberFor(referenced[0], members)
-  return <div className={`slide slide--numbers ${referenced.length === 1 ? 'slide--single-number' : ''}`}><div className="slide__topline"><span>NA THE NUMBER BE THIS</span><MessageCircle /></div>{featured && <div className="slide-person"><MemberCharacter member={featured} size="md" /><span>{featured.name}</span></div>}<h2>{headline}</h2><div className="number-grid">{referenced.slice(0,4).map((fact) => <div key={fact.id}><strong>{format(fact.value)}</strong><span>{fact.detail ?? fact.kind.replaceAll('_',' ')}</span></div>)}</div><p className="slide__roast">{roast}</p></div>
+  return <div className={`slide slide--numbers ${referenced.length === 1 ? 'slide--single-number' : ''}`}><div className="slide__topline"><span>NA THE NUMBER BE THIS</span><MessageCircle /></div>{featured && <div className="slide-person"><MemberCharacter member={featured} size="md" /><span>{featured.name}</span></div>}<h2>{headline}</h2><div className="number-grid">{referenced.slice(0,4).map((fact) => <div key={fact.id}><strong><CountUp value={fact.value} /></strong><span>{fact.detail ?? fact.kind.replaceAll('_',' ')}</span></div>)}</div><p className="slide__roast">{roast}</p></div>
 }
 function Leaderboard({ headline, referenced, roast, members }: LayoutProps) {
   const ordered = [...referenced].sort((a, b) => (a.context?.rank ?? 99) - (b.context?.rank ?? 99))
@@ -41,12 +45,12 @@ function Versus({ headline, referenced, roast, members }: LayoutProps) {
   const ordered = [...referenced].sort((a, b) => (a.context?.rank ?? 99) - (b.context?.rank ?? 99)).slice(0, 2)
   return <div className="slide slide--rank"><div className="slide__topline"><span>TWO OF DEM</span><Zap /></div><h2>{headline}</h2><div className="duel">{ordered.map((fact,i)=>{ const member = memberFor(fact, members); return <div className={i===0?'is-winner':''} key={fact.id}>{member && <MemberCharacter member={member} size="md" />}<span>{member?.name ?? 'Member'}</span><strong>{format(fact.value)}</strong><small>{fact.detail}</small></div> })}</div><p className="slide__roast">{roast}</p></div>
 }
-function Quote({ headline, referenced, roast }: LayoutProps) { const fact=referenced[0]; const isContext=fact?.kind==='topic_context'||['recurring_theme','running_joke','shared_habit','group_dynamic','memorable_moment'].includes(fact?.kind??''); return <div className="slide slide--quote"><div className="slide__topline"><span>WETIN REALLY HAPPEN</span><QuoteIcon /></div><div className="quote-mark">“</div><h2>{headline}</h2><div className="quote-detail">{isContext?fact?.value:fact?.detail}</div><p className="slide__roast">{roast}</p></div> }
-function Timeline({ headline, referenced, roast, members }: LayoutProps) {
+function Quote({ headline, referenced, roast }: LayoutProps) { const fact=referenced[0]; const isContext=fact?.kind==='topic_context'||['recurring_theme','running_joke','shared_habit','group_dynamic','memorable_moment'].includes(fact?.kind??''); return <div className="slide slide--quote"><div className="slide__topline"><span>WETIN REALLY HAPPEN</span><QuoteIcon /></div><div className="quote-mark">“</div><h2>{headline}</h2><div className={isContext ? 'quote-story' : 'quote-detail'}>{isContext?fact?.value:fact?.detail}</div><p className="slide__roast">{roast}</p></div> }
+function Timeline({ headline, referenced, roast, members, facts }: LayoutProps) {
   const fact = referenced[0]
   const featured = memberFor(fact, members)
   const evidenceWidth = Math.min(100, Math.max(8, (fact?.context?.ratioToAverage ?? 1) * 50))
-  return <div className="slide slide--timeline"><div className="slide__topline"><span>HOW E TAKE HAPPEN</span><Clock3 /></div>{featured && <div className="slide-person"><MemberCharacter member={featured} size="md" /><span>{featured.name}</span></div>}<h2>{headline}</h2><div className="timeline-line"><i aria-hidden="true"><em style={{ width: `${evidenceWidth}%` }} /></i><b>{format(fact?.value ?? 0)}</b><span>{fact?.detail}</span></div><p className="slide__roast">{roast}</p></div>
+  return <div className="slide slide--timeline"><div className="slide__topline"><span>HOW E TAKE HAPPEN</span><Clock3 /></div>{featured && <div className="slide-person"><MemberCharacter member={featured} size="md" /><span>{featured.name}</span></div>}<h2>{headline}</h2><div className="timeline-line"><i aria-hidden="true"><em style={{ width: `${evidenceWidth}%` }} /></i><b>{format(fact?.value ?? 0)}</b><span>{fact?.detail}</span></div><TopicNote label="WETIN UNA DEY TALK" text={topicOf(fact?.id, facts)} /><p className="slide__roast">{roast}</p></div>
 }
 function Award({ headline, referenced, roast, members }: LayoutProps) { const featured = memberFor(referenced[0], members); return <div className="slide slide--awards"><div className="slide__topline"><span>AWARD DON LAND</span><AwardIcon /></div><div className="trophy">{featured ? <MemberCharacter member={featured} size="lg" /> : <Trophy />}</div><h2>{headline}</h2><div className="award-card"><strong>{referenced[0]?.detail}</strong><span>{format(referenced[0]?.value ?? 0)}</span></div><p className="slide__roast">{roast}</p></div> }
 function WordCloud({ headline, referenced, roast }: LayoutProps) {
@@ -91,8 +95,8 @@ function GroupNumbers({ headline, referenced, roast, members }: LayoutProps) {
     <div className="group-kicker"><span>01</span><span>The group in numbers</span><Sparkles /></div>
     <div className="numbers-marquee" aria-hidden="true"><span>MESSAGES · MESSAGES · MESSAGES ·</span></div>
     <h2>{headline}</h2>
-    <div className="numbers-hero"><strong>{format(byKind.get('total_messages')?.value ?? 0)}</strong><span>messages<br />and counting</span></div>
-    <div className="group-stat-grid">{stats.map(([label, value]) => <div key={String(label)}><strong>{format(value)}</strong><span>{label}</span></div>)}</div>
+    <div className="numbers-hero"><strong><CountUp value={byKind.get('total_messages')?.value ?? 0} /></strong><span>messages<br />and counting</span></div>
+    <div className="group-stat-grid">{stats.map(([label, value]) => <div key={String(label)}><strong><CountUp value={value} /></strong><span>{label}</span></div>)}</div>
     <div className="group-foot"><div className="avatar-stack">{members.slice(0, 6).map((member) => <MemberCharacter key={member.id} member={member} size="sm" />)}</div><p>{roast}</p></div>
   </div>
 }
@@ -147,6 +151,7 @@ function GroupAwards(props: LayoutProps) {
     }
     // Only awards somebody clearly earned: no zero scores, no shared first place.
     return [
+      ...award('Win the war with stickers alone', members, (member) => member.stickers ?? 0, (member) => `Sticker Warrior · ${format(member.stickers ?? 0)} stickers`),
       ...award('Disappear & return like nothing happened', members, (member) => member.longestSilenceHrs >= 24 ? member.longestSilenceHrs : 0, (member) => `${hoursOrDays(member.longestSilenceHrs)} away`),
       ...award('Turn the chat into a podcast', members, (member) => member.voiceNotes ?? 0, (member) => `${format(member.voiceNotes ?? 0)} voice notes`),
       ...award('Start something in the group', members, (member) => member.starts, (member) => `${format(member.starts)} conversations started`),
@@ -271,7 +276,7 @@ function NightShift({ members, roast }: LayoutProps) {
   const total = members.reduce((sum, member) => sum + member.nightMessages, 0)
   return <div className="slide group-card group-card--nightshift"><div className="group-kicker"><span>12</span><span>The night shift</span><MoonStar /></div>
     <div className="night-sky" aria-hidden="true"><i>✦</i><i>·</i><i>✧</i><i>·</i><i>✦</i></div><div className="night-clock">03<span>:</span>17</div><h2>{total ? 'Normal bedtime was never part of the group rules.' : 'Everybody respected bedtime.'}</h2>
-    <div className="night-roster">{ordered.map((member, index) => <div key={member.id}><MemberCharacter member={member} size={index === 0 ? 'md' : 'xs'} /><span>{shortName(member)}</span><strong>{format(member.nightMessages)}</strong></div>)}</div><div className="night-total"><span>After-midnight messages</span><strong>{format(total)}</strong></div><p className="group-caption">{total ? roast : 'Not one message between midnight and five.'}</p>
+    <div className="night-roster">{ordered.map((member, index) => <div key={member.id}><MemberCharacter member={member} size={index === 0 ? 'md' : 'xs'} /><span>{shortName(member)}</span><strong>{format(member.nightMessages)}</strong></div>)}</div><div className="night-total"><span>After-midnight messages</span><strong><CountUp value={total} /></strong></div><p className="group-caption">{total ? roast : 'Not one message between midnight and five.'}</p>
   </div>
 }
 
@@ -297,9 +302,10 @@ function LaughTrack({ members, roast, referenced, hideNames }: LayoutProps) {
   const total = members.reduce((sum, member) => sum + member.laughs, 0)
   const moment = referenced.find((fact) => fact.kind === 'laugh_moment')
   const author = memberFor(moment, members)
-  return <div className="slide group-card group-card--laughtrack"><div className="group-kicker"><span>15</span><span>The laugh track</span><Laugh /></div>
-    <div className="laugh-face">😂<span>{format(moment?.value ?? total)}</span></div><h2>{moment ? 'This message triggered the biggest laugh burst.' : ordered.length ? 'Who sent the most laugh messages?' : 'No laughs showed up in this export.'}</h2>
-    {moment ? <div className="laugh-moment">{hideNames ? <blockquote>Message hidden while names are hidden.</blockquote> : moment.detail ? <blockquote>“{moment.detail}”</blockquote> : <blockquote>The message itself is not saved on this device.</blockquote>}<span>{author ? `Sent by ${author.name} · ` : ''}{format(moment.value)} laugh replies followed</span></div> : <div className="laugh-board">{ordered.map((member, index) => <div key={member.id}><b>{index + 1}</b><span>{shortName(member)}</span><strong>{format(member.laughs)}</strong></div>)}</div>}<p className="group-caption">{roast}</p>
+  const replies = hideNames ? [] : (moment?.replies ?? []).flatMap((reply) => { const member = members.find((item) => item.id === reply.memberId); return member ? [{ member, text: reply.text }] : [] })
+  return <div className={`slide group-card group-card--laughtrack ${replies.length ? 'has-replies' : ''}`}><div className="group-kicker"><span>15</span><span>The laugh track</span><Laugh /></div>
+    <div className="laugh-face">😂<span>{format(moment?.value ?? total)}</span></div><h2>{moment ? 'Most people laughed right after this one.' : ordered.length ? 'Who sent the most laugh messages?' : 'No laughs showed up in this export.'}</h2>
+    {moment ? <div className="laugh-moment">{hideNames ? <blockquote>Message hidden while names are hidden.</blockquote> : moment.detail ? <blockquote>“{moment.detail}”</blockquote> : <blockquote>The message itself is not saved on this device.</blockquote>}<span>{author ? `Sent by ${author.name} · ` : ''}{format(moment.value)} people sent a laugh after it</span>{replies.length > 0 && <div className="laugh-replies"><small>Replies after this</small><ul>{replies.map((reply) => <li key={reply.member.id}><b>{shortName(reply.member)}</b>{reply.text}</li>)}</ul></div>}</div> : <div className="laugh-board">{ordered.map((member, index) => <div key={member.id}><b>{index + 1}</b><span>{shortName(member)}</span><strong>{format(member.laughs)}</strong></div>)}</div>}<p className="group-caption">{roast}</p>
   </div>
 }
 
@@ -309,7 +315,7 @@ function ConversationSpark({ members, roast }: LayoutProps) {
   const ordered = [...members].sort((a, b) => b.starts - a.starts).slice(0, 5)
   return <div className="slide group-card group-card--spark"><div className="group-kicker"><span>16</span><span>Who keeps pressing start?</span><Zap /></div>
     <div className="spark-match"><i /><Flame /><span>Fresh topic<br />loading…</span></div><h2>{leader ? `${leader.name} refuses to let silence win.` : 'The fresh topics are evenly shared.'}</h2>
-    <div className="spark-count"><strong>{format(starter.starts)}</strong><span>conversations started</span></div><div className="spark-board">{ordered.map((member, index) => <span key={member.id}><b>{shortName(member)}</b><i><em style={{ width: `${member.starts / Math.max(1, starter.starts) * 100}%` }} /></i><small>{format(member.starts)}</small></span>)}</div><p className="group-caption">{roast}</p>
+    <div className="spark-count"><strong><CountUp value={starter.starts} /></strong><span>conversations started</span></div><div className="spark-board">{ordered.map((member, index) => <span key={member.id}><b>{shortName(member)}</b><i><em style={{ width: `${member.starts / Math.max(1, starter.starts) * 100}%` }} /></i><small>{format(member.starts)}</small></span>)}</div><p className="group-caption">{roast}</p>
   </div>
 }
 
@@ -360,13 +366,28 @@ function FinalVerdict({ referenced, members, roast }: LayoutProps) {
   </div>
 }
 
-const layouts: Record<LayoutType, (props: LayoutProps) => React.ReactNode> = { cover: Cover, bigNumber: BigNumber, leaderboard: Leaderboard, versus: Versus, quote: Quote, timeline: Timeline, award: Award, wordCloud: WordCloud, heatmap: Heatmap, verdict: Verdict, groupNumbers: GroupNumbers, yapLeaderboard: YapLeaderboard, characterCast: CharacterCast, groupAwards: GroupAwards, socialGraph: SocialGraph, plotTwist: PlotTwist, groupLanguage: GroupLanguage, timeCapsule: TimeCapsule, companyRoast: CompanyRoast, dynamicDuo: DynamicDuo, replyRace: ReplyRace, nightShift: NightShift, mediaDesk: MediaDesk, ghostWatch: GhostWatch, laughTrack: LaughTrack, conversationSpark: ConversationSpark, groupPulse: GroupPulse, memoryVault: MemoryVault, movieFinale: MovieFinale, finalVerdict: FinalVerdict }
+const layouts: Record<LayoutType, (props: LayoutProps) => React.ReactNode> = { cover: Cover, bigNumber: BigNumber, leaderboard: Leaderboard, versus: Versus, quote: Quote, timeline: Timeline, award: Award, wordCloud: WordCloud, heatmap: Heatmap, verdict: Verdict, groupNumbers: GroupNumbers, yapLeaderboard: YapLeaderboard, characterCast: CharacterCast, groupAwards: GroupAwards, socialGraph: SocialGraph, plotTwist: PlotTwist, groupLanguage: GroupLanguage, timeCapsule: TimeCapsule, companyRoast: CompanyRoast, dynamicDuo: DynamicDuo, replyRace: ReplyRace, nightShift: NightShift, mediaDesk: MediaDesk, ghostWatch: GhostWatch, laughTrack: LaughTrack, conversationSpark: ConversationSpark, groupPulse: GroupPulse, memoryVault: MemoryVault, movieFinale: MovieFinale, finalVerdict: FinalVerdict, highlights: Highlights, split: Split, monthly: Monthly, hourly: Hourly, quietGap: QuietGap, emojiBoard: EmojiBoard, calls: Calls }
 
-export function CardRenderer({ card, facts, members, savage, hideNames, preview, watermark = true, view, onView }: Props) {
+// Which cards get a shower, and of what. The chat's own emojis come first.
+function rainFor(layout: LayoutType, facts: Fact[]) {
+  const own = facts.filter((fact) => fact.kind === 'top_emoji' && fact.detail).map((fact) => fact.detail!)
+  if (layout === 'emojiBoard' || layout === 'groupLanguage') return own
+  if (layout === 'laughTrack') return ['😂', '🤣']
+  if (layout === 'cover' || layout === 'groupNumbers') return own.length ? own.slice(0, 4) : ['💬', '✨']
+  if (layout === 'verdict' || layout === 'finalVerdict') return ['🎉', '✨', ...own.slice(0, 2)]
+  return []
+}
+
+export function CardRenderer({ still = false, ...props }: Props & { still?: boolean }) {
+  return <StillContext.Provider value={still}><Slide {...props} /></StillContext.Provider>
+}
+
+function Slide({ card, facts, members, savage, hideNames, preview, watermark = true, view, onView }: Props) {
+  const motionless = useStill()
   const referenced = card.factIds.map((id) => facts.find((fact) => fact.id === id)).filter(Boolean) as Fact[]
   const displayMembers = useMemo(() => toDisplayMembers(members, hideNames), [hideNames, members])
   const headline = resolveTemplate(card.headline, referenced, displayMembers)
   const roast = resolveTemplate(savage && card.savageRoast ? card.savageRoast : card.roast, referenced, displayMembers)
   const Layout = layouts[card.layout]
-  return <ErrorBoundary scope={`card-${card.layout}`} fallback={<div className="card-fallback"><p>This card couldn’t load.</p><small>C-302 · Skip to the next card.</small></div>}><div className={`story-slide story-slide--${card.layout}`}><Layout {...{ card, facts, members: displayMembers, savage, hideNames, referenced, headline, roast, view, onView }} />{preview && <div className="preview-ribbon">PREVIEW ONLY · EXPORT LOCKED</div>}{watermark && <div className="slide-watermark">{brand.domain}</div>}</div></ErrorBoundary>
+  return <ErrorBoundary scope={`card-${card.layout}`} fallback={<div className="card-fallback"><p>This card couldn’t load.</p><small>C-302 · Skip to the next card.</small></div>}><div className={`story-slide story-slide--${card.layout} ${motionless ? '' : 'is-animated'}`}><EmojiRain emojis={rainFor(card.layout, facts)} /><Layout {...{ card, facts, members: displayMembers, savage, hideNames, referenced, headline, roast, view, onView }} />{preview && <div className="preview-ribbon">PREVIEW ONLY · EXPORT LOCKED</div>}{watermark && <div className="slide-watermark">{brand.domain}</div>}</div></ErrorBoundary>
 }
