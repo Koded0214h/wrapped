@@ -34,12 +34,12 @@ export function rhythmCards(facts: Fact[]): Card[] {
   const members = facts.filter((fact) => fact.kind === 'member_messages').map((fact) => fact.id).slice(0, 2)
   const card = (layout: LayoutType, factIds: string[], headline: string, roast: string): Card => ({ id: `rhythm_${layout}`, layout, factIds, headline, roast, locked: true })
   return [
-    ...(has('longest_streak') ? [card('highlights', ['active_days', 'longest_streak', 'longest_conversation', 'weekday_peak'].filter(has), 'Una chat for numbers.', 'Na so una take show face.')] : []),
-    ...(members.length === 2 ? [card('split', members, 'Who dey type pass?', 'We count every message wey dey the export.')] : []),
-    ...(has('month_series') ? [card('monthly', ['month_series'], '{{detail:month_series}} na when gist pass.', '{{value:month_series}} messages land that month.')] : []),
-    ...(has('hour_series') ? [card('hourly', ['hour_series'], '{{detail:hour_series}} na una gist hour.', 'Message no dey rest for that time.')] : []),
-    ...(has('quiet_gap') ? [card('quietGap', ['quiet_gap'], 'Una chat go quiet small.', 'Nobody type between {{detail:quiet_gap}}.')] : []),
-    ...(emojis.length >= 3 ? [card('emojiBoard', emojis, 'Emoji wey una no fit leave.', 'Na {{detail:emoji_0}} lead the pack.')] : []),
-    ...(has('call_total') ? [card('calls', ['call_total', 'call_minutes'].filter(has), 'Una no only type. Una call too.', 'Na wetin the export record be this.')] : [])
+    ...(has('longest_streak') ? [card('highlights', ['active_days', 'longest_streak', 'longest_conversation', 'weekday_peak'].filter(has), 'Your chat in numbers.', 'This is how you showed up.')] : []),
+    ...(members.length === 2 ? [card('split', members, 'Who types more?', 'Every message in the export counted.')] : []),
+    ...(has('month_series') ? [card('monthly', ['month_series'], '{{detail:month_series}} was peak gist.', '{{value:month_series}} messages that month.')] : []),
+    ...(has('hour_series') ? [card('hourly', ['hour_series'], '{{detail:hour_series}} is your gist hour.', 'Messages no dey rest at that time.')] : []),
+    ...(has('quiet_gap') ? [card('quietGap', ['quiet_gap'], 'The chat went quiet small.', 'Nobody typed between {{detail:quiet_gap}}.')] : []),
+    ...(emojis.length >= 3 ? [card('emojiBoard', emojis, 'Emojis you can’t do without.', '{{detail:emoji_0}} dey lead.')] : []),
+    ...(has('call_total') ? [card('calls', ['call_total', 'call_minutes'].filter(has), 'You don’t only type, you call too.', 'Straight from the export.')] : [])
   ]
 }

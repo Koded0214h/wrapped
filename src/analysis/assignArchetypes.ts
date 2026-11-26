@@ -11,7 +11,7 @@ type Role = MemberArchetype & { value: (member: Member) => number }
 
 const roles: Role[] = [
   // First, so the person who sends the most stickers is cast as exactly that.
-  { title: 'The Sticker Warrior', description: 'Why type reply when one sticker don already talk am?', emoji: '🥷', value: (m) => m.stickers ?? 0 },
+  { title: 'The Sticker Warrior', description: 'Why type when one sticker says it all?', emoji: '🥷', value: (m) => m.stickers ?? 0 },
   { title: 'The Voice Note Minister', description: 'Has a microphone and is not afraid to use all of it.', emoji: '🎙️', value: (m) => (m.voiceNotes ?? 0) * 20 + m.mediaCount },
   { title: 'The Midnight Philosopher', description: 'The deeper thoughts arrive after everybody should be asleep.', emoji: '🌙', value: (m) => m.nightMessages / Math.max(1, m.messages) * 100 },
   { title: 'The News Correspondent', description: 'If it happened online, this person has already dropped the link.', emoji: '🗞️', value: (m) => (m.linkCount ?? 0) * 10 + m.mediaCount },

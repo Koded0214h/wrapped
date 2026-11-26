@@ -117,7 +117,7 @@ describe('dynamic card planning', () => {
     }
     expect(computeFacts(upload).some((fact) => fact.kind === 'verdict')).toBe(false)
     const verdict = deriveVerdict(upload.members, upload.totals.messages)
-    expect(verdict.title).toBe('Both of Una Dey Reply')
+    expect(verdict.title).toBe('You Both Dey Reply')
     expect(verdict.blurb).toContain('10 percentage points')
     upload.verdict = verdict
     const facts = computeFacts(upload)

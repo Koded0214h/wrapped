@@ -56,7 +56,7 @@ export function Upload() {
     <button className={`dropzone ${dragging ? 'is-dragging' : ''}`} onClick={() => input.current?.click()} onDragOver={(e) => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={(e) => { e.preventDefault(); setDragging(false); accept(e.dataTransfer.files[0]) }}><span className="dropzone__icon"><UploadCloud /></span><strong>Choose your chat file</strong><small>.txt or .zip, or drag it here</small></button>
     <input ref={input} type="file" accept=".txt,.zip" hidden onChange={(e) => accept(e.target.files?.[0])} />{error && <p className="form-error" role="alert">{error}</p>}
     <div className="upload__divider"><span>No file yet? Try a sample</span></div><div className="sample-grid">
-      <button onClick={() => sample('friends')}><MessagesSquare /><span><strong>Friends group</strong><small>Who dey awake at 3am</small></span></button>
+      <button onClick={() => sample('friends')}><MessagesSquare /><span><strong>Friends group</strong><small>Who’s up at 3am</small></span></button>
       <button onClick={() => sample('study')}><BookOpenCheck /><span><strong>Study group</strong><small>Deadlines and rescues</small></span></button>
       <button onClick={() => sample('couple')}><Heart /><span><strong>Couple chat</strong><small>Replies and calls</small></span></button>
     </div><p className="upload__privacy"><LockKeyhole size={16} /> {privacyCopy.short}</p>

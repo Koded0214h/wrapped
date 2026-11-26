@@ -24,20 +24,20 @@ export const readableDay = (day: string) => /^\d{4}-\d{2}-\d{2}$/.test(day)
 const percent = (part: number, whole: number) => round(part / Math.max(1, whole) * 100, 1)
 
 const metricSpecs: MetricSpec[] = [
-  { kind: 'member_messages', high: true, detail: 'messages wey dem send', humourScore: 84, visualScore: 96, value: (member) => member.messages },
+  { kind: 'member_messages', high: true, detail: 'messages sent', humourScore: 84, visualScore: 96, value: (member) => member.messages },
   { kind: 'message_share', high: true, detail: 'percent of all messages', humourScore: 88, visualScore: 92, value: (member) => member.sharePct },
   { kind: 'fast_reply', high: false, detail: 'average minutes before reply', humourScore: 91, visualScore: 88, value: (member) => member.avgReplyMins },
   { kind: 'slow_reply', high: true, detail: 'average minutes before reply', humourScore: 88, visualScore: 84, value: (member) => member.avgReplyMins },
-  { kind: 'longest_silence', high: true, detail: 'hours wey dem quiet', humourScore: 85, visualScore: 90, value: (member) => member.longestSilenceHrs },
-  { kind: 'conversation_starts', high: true, detail: 'fresh gist wey dem start', humourScore: 86, visualScore: 82, value: (member) => member.starts },
-  { kind: 'laugh_count', high: true, detail: 'laughs wey dem send', humourScore: 90, visualScore: 89, value: (member) => member.laughs },
-  { kind: 'hard_to_impress', high: false, detail: 'laughs wey dem send', humourScore: 72, visualScore: 68, value: (member) => member.laughs },
-  { kind: 'sorry_count', high: true, detail: 'sorry wey dem type', humourScore: 78, visualScore: 76, value: (member) => member.sorrys },
+  { kind: 'longest_silence', high: true, detail: 'hours of silence', humourScore: 85, visualScore: 90, value: (member) => member.longestSilenceHrs },
+  { kind: 'conversation_starts', high: true, detail: 'fresh gists started', humourScore: 86, visualScore: 82, value: (member) => member.starts },
+  { kind: 'laugh_count', high: true, detail: 'laughs sent', humourScore: 90, visualScore: 89, value: (member) => member.laughs },
+  { kind: 'hard_to_impress', high: false, detail: 'laughs sent', humourScore: 72, visualScore: 68, value: (member) => member.laughs },
+  { kind: 'sorry_count', high: true, detail: 'sorrys typed', humourScore: 78, visualScore: 76, value: (member) => member.sorrys },
   { kind: 'night_activity', high: true, detail: 'messages after midnight', humourScore: 94, visualScore: 96, value: (member) => member.nightMessages },
-  { kind: 'night_share', high: true, detail: 'percent wey enter after midnight', humourScore: 92, visualScore: 94, value: (member) => percent(member.nightMessages, member.messages) },
+  { kind: 'night_share', high: true, detail: 'percent after midnight', humourScore: 92, visualScore: 94, value: (member) => percent(member.nightMessages, member.messages) },
   { kind: 'media_dropper', high: true, detail: 'media messages marked omitted in the export', humourScore: 82, visualScore: 84, value: (member) => member.mediaCount },
   { kind: 'daily_presence', high: true, detail: 'messages for each active day', humourScore: 81, visualScore: 80, value: (member, chat) => round(member.messages / Math.max(1, chat.totals.activeDays), 1) },
-  { kind: 'starter_share', high: true, detail: 'percent of fresh gist wey dem start', humourScore: 87, visualScore: 86, value: (member, chat) => percent(member.starts, chat.members.reduce((sum, item) => sum + item.starts, 0)) },
+  { kind: 'starter_share', high: true, detail: 'percent of fresh gists started', humourScore: 87, visualScore: 86, value: (member, chat) => percent(member.starts, chat.members.reduce((sum, item) => sum + item.starts, 0)) },
   { kind: 'laugh_rate', high: true, detail: 'laughs for every hundred messages', humourScore: 89, visualScore: 86, value: (member) => round(member.laughs / Math.max(1, member.messages) * 100, 1) },
   { kind: 'media_rate', high: true, detail: 'media for every hundred messages', humourScore: 80, visualScore: 83, value: (member) => round(member.mediaCount / Math.max(1, member.messages) * 100, 1) }
   ,{ kind: 'member_words', high: true, detail: 'actual words typed', humourScore: 90, visualScore: 97, value: (member) => member.words ?? 0 }
@@ -84,11 +84,11 @@ export function computeFacts(chat: AggregateChat): Fact[] {
     { id: 'chat_label', kind: 'chat_label', memberIds: [], value: chat.chatName, surpriseScore: 0 },
     { id: 'date_range', kind: 'date_range', memberIds: [], value: `${chat.range.start} — ${chat.range.end}`, surpriseScore: 0 },
     { id: 'total_messages', kind: 'total_messages', memberIds: [], value: chat.totals.messages, detail: 'messages', surpriseScore: 58, context: { confidence: 100, humourScore: 58, visualScore: 88 } },
-    { id: 'total_words', kind: 'total_words', memberIds: [], value: chat.totals.words, detail: 'words wey una type', surpriseScore: 45, context: { confidence: 100, humourScore: 52, visualScore: 76 } },
+    { id: 'total_words', kind: 'total_words', memberIds: [], value: chat.totals.words, detail: 'words typed', surpriseScore: 45, context: { confidence: 100, humourScore: 52, visualScore: 76 } },
     { id: 'total_members', kind: 'total_members', memberIds: [], value: chat.members.length, detail: 'active members', surpriseScore: 50, context: { confidence: 100, humourScore: 64, visualScore: 82 } },
     { id: 'media_count', kind: 'media_count', memberIds: [], value: chat.members.reduce((sum, member) => sum + member.mediaCount, 0), detail: 'media messages marked omitted in the export', surpriseScore: 52, context: { confidence: 100, humourScore: 72, visualScore: 84 } },
     { id: 'avg_messages_day', kind: 'avg_messages_day', memberIds: [], value: round(chat.totals.messages / Math.max(1, chat.totals.activeDays), 1), detail: 'messages per active day', surpriseScore: 56, context: { confidence: 100, humourScore: 76, visualScore: 88 } },
-    { id: 'active_days', kind: 'active_days', memberIds: [], value: chat.totals.activeDays, detail: 'days wey chat active', surpriseScore: 42, context: { confidence: 100, humourScore: 50, visualScore: 70 } },
+    { id: 'active_days', kind: 'active_days', memberIds: [], value: chat.totals.activeDays, detail: 'active days', surpriseScore: 42, context: { confidence: 100, humourScore: 50, visualScore: 70 } },
     { id: 'emoji_count', kind: 'emoji_count', memberIds: [], value: chat.totals.emojis, detail: 'emojis', surpriseScore: 48, context: { confidence: 100, humourScore: 70, visualScore: 76 } },
     { id: 'busiest_day', kind: 'busiest_day', memberIds: [], value: chat.totals.busiestDay.count, detail: readableDay(chat.totals.busiestDay.date), surpriseScore: 72, context: { confidence: 100, humourScore: 82, visualScore: 90 } }
   ]
