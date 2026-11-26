@@ -1297,3 +1297,23 @@ h1, h2 { font-weight: 780; letter-spacing: -.01em; }
 .story-slide--signoff.is-animated .koded-mark { animation: signoff-in .7s cubic-bezier(.2, 1.4, .4, 1) backwards; }
 .story-slide--signoff.is-animated .signoff p { animation: signoff-in .5s 1s ease-out backwards; }
 @keyframes signoff-in { from { opacity: 0; scale: .6; rotate: -8deg; } }
+
+/* Stats: the link beside Privacy and the public numbers panel. */
+.landing__links { display: flex; align-items: center; gap: 4px; }
+@media (max-width: 420px) { .landing__links .text-link { padding-inline: 8px; } }
+.stats-panel { display: grid; gap: 12px; margin-top: 14px; }
+.stats-panel__intro, .stats-panel__empty { margin: 14px 0 0; color: color-mix(in srgb, var(--ink) 72%, transparent); font-size: .92rem; line-height: 1.45; }
+.stats-tile { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 4px 16px; padding: 14px 16px; border: 2.5px solid var(--line); border-radius: 16px; background: #fffdf8; box-shadow: var(--pop); }
+.stats-tile__head { display: grid; gap: 2px; }
+.stats-tile__head span { font-weight: 800; }
+.stats-tile__head small { color: color-mix(in srgb, var(--ink) 65%, transparent); font-size: .74rem; }
+.stats-tile__total { grid-row: span 2; align-self: center; font: 500 2.4rem/1 var(--font-display, "Gluten Variable", sans-serif); font-variant-numeric: tabular-nums; }
+.stats-days { display: grid; gap: 4px; }
+.stats-days__bars { height: 44px; display: grid; grid-template-columns: repeat(14, 1fr); gap: 2px; align-items: end; }
+.stats-days__bars button { height: 100%; padding: 0; border: 0; background: transparent; display: flex; align-items: flex-end; cursor: default; }
+.stats-days__bars button:focus-visible { outline: 2px solid var(--line); outline-offset: 1px; }
+.stats-days__bars i { width: 100%; min-height: 0; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--coral, #e8502d) 45%, #fffdf8); }
+.stats-days__bars button.is-active i { background: var(--coral, #e8502d); }
+.stats-days__bars { border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent); }
+.stats-days__readout { margin: 0; display: flex; justify-content: space-between; font-size: .74rem; color: color-mix(in srgb, var(--ink) 70%, transparent); }
+.stats-days__readout strong { color: var(--ink); font-variant-numeric: tabular-nums; }

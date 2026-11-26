@@ -6,6 +6,7 @@ import { dirname, extname, join, resolve } from 'node:path'
 import { BANNED_CARD_COPY, CARD_PLANNER_SYSTEM_PROMPT, CONTEXT_ANALYST_SYSTEM_PROMPT, FULL_CHAT_CHUNK_SYSTEM_PROMPT, FULL_CHAT_SYNTHESIS_SYSTEM_PROMPT } from './aiPrompt.mjs'
 import { createOpenAICardPlannerService } from './services/openaiCardPlanner.mjs'
 import { createBachsService, isPaid } from './services/bachs.mjs'
+import { handleStats } from './stats.mjs'
 
 const port = Number(process.env.PORT || 8787)
 // Refuse to start on a typo: falling back to mock would hand out paid features for nothing.
@@ -276,6 +277,7 @@ const server=http.createServer(async(req,res)=>{
     const url=new URL(req.url||'/','http://localhost')
     if((url.pathname.startsWith('/admin')||url.pathname.startsWith('/api/jobs/')||url.pathname==='/api/outreach')&&!allowed(req,'admin',60))return json(res,429,{error:'rate_limited'})
     if((url.pathname==='/api/report'||url.pathname==='/api/privacy/delete')&&!allowed(req,'support',10))return json(res,429,{error:'rate_limited'})
+    if(url.pathname==='/api/stats')return handleStats(req,res,(r)=>body(r,false,1000).catch(()=>({})))
     if(url.pathname==='/api/health')return json(res,200,{ok:true,db:true,paymentMode,bachs:paymentMode==='bachs'&&bachs.configured,openai:Boolean(process.env.OPENAI_API_KEY),bachsWebhook:bachs.webhookConfigured,telegram:Boolean(process.env.TELEGRAM_BOT_TOKEN)})
     if(url.pathname==='/api/collect'&&req.method==='POST'){if(!allowed(req,'collect',240))return json(res,429,{error:'rate_limited'});collector((await body(req)).events);return json(res,202,{accepted:true})}
     if(url.pathname==='/api/payments/init'&&req.method==='POST'){if(!allowed(req,'pay',20))return json(res,429,{error:'rate_limited'});return json(res,200,await initPayment(await body(req)))}
