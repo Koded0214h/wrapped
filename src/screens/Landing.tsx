@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, ArrowUpRight, LockKeyhole } from 'lucide-react'
-import { useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Brand } from '../components/Brand'
 import { Button } from '../components/Button'
 import { RealCard, type Sample } from '../components/RealCard'
@@ -10,6 +10,12 @@ import { track } from '../lib/telemetry'
 import { appConfig, privacyCopy } from '../config/appConfig'
 import { brand } from '../config/brand'
 import { KodedMark, credit } from '../components/KodedLabs'
+import { friendMessages } from '../landing3d/messages'
+
+// The 3D scenes load after the page, in their own chunk, so the first paint stays light.
+const HeroStage = lazy(() => import('../landing3d/stages').then((module) => ({ default: module.HeroStage })))
+const FriendsStage = lazy(() => import('../landing3d/stages').then((module) => ({ default: module.FriendsStage })))
+const EmojiStage = lazy(() => import('../landing3d/stages').then((module) => ({ default: module.EmojiStage })))
 
 type Kind = 'dm' | 'group'
 
@@ -34,6 +40,10 @@ function useSampleCards() {
           { sample: tag(couple, 'calls'), caption: 'Calls count too.', kind: '1:1' },
           { sample: tag(group, 'companyRoast'), caption: 'Your group, as a company.', kind: 'Group' },
           { sample: tag(couple, 'emojiBoard'), caption: 'The emojis you live by.', kind: '1:1' },
+          { sample: tag(group, 'yapLeaderboard', 'bubblegum'), caption: 'Who yaps, ranked.', kind: 'Group' },
+          { sample: tag(couple, 'split', 'midnight'), caption: 'Who types more.', kind: '1:1' },
+          { sample: tag(group, 'groupAwards', 'lagos'), caption: 'Awards nobody asked for.', kind: 'Group' },
+          { sample: tag(couple, 'monthly', 'mint'), caption: 'Your busiest month.', kind: '1:1' },
           { sample: tag(group, 'finalVerdict'), caption: 'One verdict to end it.', kind: 'Group' }
         ]
       })
@@ -82,61 +92,147 @@ const steps = [
   ['Post the ones that sting', 'Swipe through, save the cards you love, and send them back to the group.']
 ]
 
+/** Words drop in one after another, with a little tumble, when the title scrolls into view. */
+function DropTitle({ text, id, as: Tag = 'h2' }: { text: string; id?: string; as?: 'h1' | 'h2' }) {
+  const reduced = useReducedMotion()
+  const MotionTag = Tag === 'h1' ? motion.h1 : motion.h2
+  return <MotionTag id={id} aria-label={text} initial={reduced ? false : 'hidden'} whileInView="shown" viewport={{ once: true, amount: 0.6 }} transition={{ staggerChildren: 0.07 }}>
+    {text.split(' ').map((word, index) => <motion.span key={index} aria-hidden="true" className="drop-word" variants={{ hidden: { opacity: 0, y: -70, rotate: index % 2 ? 8 : -8 }, shown: { opacity: 1, y: 0, rotate: 0, transition: { type: 'spring', stiffness: 260, damping: 15 } } }}>{word}</motion.span>)}
+  </MotionTag>
+}
+
+/** Rises into place as it scrolls into view. */
+function Reveal({ children, delay = 0, className }: { children: ReactNode; delay?: number; className?: string }) {
+  const reduced = useReducedMotion()
+  return <motion.div className={className} initial={reduced ? false : { opacity: 0, y: 46, scale: 0.97 }} whileInView={{ opacity: 1, y: 0, scale: 1 }} viewport={{ once: true, amount: 0.25 }} transition={{ type: 'spring', stiffness: 110, damping: 17, delay }}>{children}</motion.div>
+}
+
+type RailItem = { sample: Sample; caption: string; kind: string }
+
+/** The cards section pins while you scroll, and the scroll moves the cards sideways. */
+function CardRail({ items }: { items?: RailItem[] }) {
+  const reduced = useReducedMotion()
+  const section = useRef<HTMLElement>(null)
+  const track = useRef<HTMLUListElement>(null)
+  const [height, setHeight] = useState<number>()
+  useEffect(() => {
+    const node = section.current, list = track.current
+    if (reduced || !node || !list) return
+    const distance = () => Math.max(0, list.scrollWidth - window.innerWidth)
+    const measure = () => setHeight(window.innerHeight + distance())
+    const move = () => {
+      const box = node.getBoundingClientRect()
+      const progress = Math.min(1, Math.max(0, -box.top / Math.max(1, box.height - window.innerHeight)))
+      list.style.transform = `translate3d(${-progress * distance()}px, 0, 0)`
+      list.style.setProperty('--progress', String(progress))
+    }
+    const resize = new ResizeObserver(() => { measure(); move() })
+    resize.observe(list)
+    window.addEventListener('scroll', move, { passive: true })
+    window.addEventListener('resize', measure)
+    measure(); move()
+    return () => { resize.disconnect(); window.removeEventListener('scroll', move); window.removeEventListener('resize', measure) }
+  }, [items, reduced])
+  return <section ref={section} className={`cards-scroll ${reduced ? 'is-static' : ''}`} style={height ? { height } : undefined} aria-labelledby="inside-title">
+    <div className="cards-scroll__sticky">
+      <div className="cards-scroll__head">
+        <DropTitle id="inside-title" text="Deal with it." />
+        <Reveal delay={0.15}><p>Every chat deals a different hand: two people or two hundred, and every number comes from your own export. Keep scrolling, we’ll shuffle.</p></Reveal>
+      </div>
+      <ul ref={track} className="rail rail--scroll" tabIndex={reduced ? 0 : -1} aria-label="Sample cards">
+        {items?.map(({ sample: item, caption, kind }, index) => <li key={caption} style={{ '--i': index } as React.CSSProperties}><RealCard sample={item} still /><span>{caption}<small>{kind}</small></span></li>)}
+      </ul>
+    </div>
+  </section>
+}
+
+/** Shown while the friends scene loads, and instead of it where WebGL is unavailable. */
+function StaticBubbles() {
+  return <ul className="static-bubbles" aria-hidden="true">{friendMessages.slice(0, 6).map((message) => <li key={message.text} className={`friend-bubble friend-bubble--${message.from ? 'right' : 'left'}`}>{message.text}</li>)}</ul>
+}
+
 export function Landing({ openPrivacy }: { openPrivacy: () => void }) {
   const setStep = useApp((s) => s.setStep)
   const cards = useSampleCards()
+  const still = Boolean(useReducedMotion())
   useEffect(() => { track('landing_view'); if (new URLSearchParams(location.search).has('ref')) track('referral_landing', { ref: new URLSearchParams(location.search).get('ref')?.slice(0,40) ?? '' }) }, [])
   const begin = () => { setStep('choose'); window.scrollTo(0, 0) }
   const sample = () => { setStep('upload'); window.scrollTo(0, 0) }
   const price = appConfig.freeAccess ? 'Free, with every theme included.' : 'Free to make and download. Pay only for a custom look.'
+  const deck = <Deck decks={cards?.decks} />
   return <main className="landing">
-    <nav className="landing__nav"><div className="landing__brand"><Brand /><a className="studio-credit" href={brand.studioUrl} target="_blank" rel="noreferrer"><KodedMark />{credit}</a></div><button className="text-link" onClick={openPrivacy}><LockKeyhole size={16} /> Privacy</button></nav>
-
-    <section className="hero">
-      <div className="hero__copy">
-        <h1>Your chat, exposed.</h1>
-        <p>Your person or your whole group. Drop the WhatsApp export and get a one-of-one deck about who carries the gist, who ghosts, and who is awake at 3am.</p>
-        <div className="hero__actions">
-          <Button onClick={begin}>Get yours in 30 seconds <ArrowUpRight size={20} /></Button>
-          <button className="sample-link" onClick={sample}>or try it with a sample chat</button>
+    <section className="hero-band">
+      <nav className="landing__nav"><div className="landing__brand"><Brand /><a className="studio-credit" href={brand.studioUrl} target="_blank" rel="noreferrer"><KodedMark />{credit}</a></div><button className="text-link" onClick={openPrivacy}><LockKeyhole size={16} /> Privacy</button></nav>
+      <div className="hero">
+        <div className="hero__copy">
+          <Reveal><span className="hero__kicker">WhatsApp chats · 1:1 and groups</span></Reveal>
+          <motion.h1 aria-label="Your chat, exposed." initial={still ? false : 'hidden'} animate="shown" transition={{ staggerChildren: 0.09, delayChildren: 0.15 }}>
+            {['Your', 'chat,'].map((word) => <motion.span key={word} aria-hidden="true" className="drop-word" variants={{ hidden: { opacity: 0, y: -90, rotate: -10 }, shown: { opacity: 1, y: 0, rotate: 0, transition: { type: 'spring', stiffness: 240, damping: 14 } } }}>{word}</motion.span>)}
+            <motion.span aria-hidden="true" className="drop-word marker" variants={{ hidden: { opacity: 0, scale: 0.4, rotate: 12 }, shown: { opacity: 1, scale: 1, rotate: 0, transition: { type: 'spring', stiffness: 220, damping: 11 } } }}>exposed.</motion.span>
+          </motion.h1>
+          <Reveal delay={0.45}><p>Your person or your whole group. Drop the WhatsApp export and get a one-of-one deck about who carries the gist, who ghosts, and who is awake at 3am.</p></Reveal>
+          <Reveal delay={0.6}>
+            <div className="hero__actions">
+              <Button onClick={begin}>Get yours in 30 seconds <ArrowUpRight size={20} /></Button>
+              <button className="sample-link" onClick={sample}>or try it with a sample chat</button>
+            </div>
+            <p className="hero__price">{price}</p>
+            <div className="trust"><LockKeyhole size={17} /><span>{privacyCopy.short}</span></div>
+          </Reveal>
         </div>
-        <p className="hero__price">{price}</p>
-        <div className="trust"><LockKeyhole size={17} /><span>{privacyCopy.short}</span></div>
+        <div className="hero__stage">
+          <span className="float-sticker float-sticker--one" aria-hidden="true">😂</span>
+          <span className="float-sticker float-sticker--two" aria-hidden="true">🔥</span>
+          <span className="float-sticker float-sticker--three" aria-hidden="true">👀</span>
+          <Suspense fallback={deck}><HeroStage still={still} fallback={deck} /></Suspense>
+        </div>
       </div>
-      <Deck decks={cards?.decks} />
     </section>
 
-    <section className="inside" aria-labelledby="inside-title">
-      <h2 id="inside-title">Nobody escapes the cards.</h2>
-      <p>Two people or two hundred. Every number comes from your own chat.</p>
-      <ul className="rail" tabIndex={0} aria-label="More sample cards, scroll sideways">
-        {cards?.rail.map(({ sample: item, caption, kind }) => <li key={caption}><RealCard sample={item} still /><span>{caption}<small>{kind}</small></span></li>)}
-      </ul>
+    <section className="friends" aria-labelledby="friends-title">
+      <div className="friends__copy">
+        <DropTitle id="friends-title" text="Group chat, meet group chart." />
+        <Reveal delay={0.2}><p>Every card comes from what your chat actually did: who yaps, who replies in four seconds, and who vanishes for a month then returns with “wetin I miss?”</p></Reveal>
+      </div>
+      <Suspense fallback={<StaticBubbles />}><FriendsStage still={still} fallback={<StaticBubbles />} /></Suspense>
     </section>
+
+    <CardRail items={cards?.rail} />
 
     <section className="how" aria-labelledby="how-title">
-      <h2 id="how-title">From chat to cards in three moves.</h2>
-      <ol>{steps.map(([title, copy]) => <li key={title}><h3>{title}</h3><p>{copy}</p></li>)}</ol>
+      <DropTitle id="how-title" text="Easier than leaving someone on read." />
+      <ol>{steps.map(([title, copy], index) => <li key={title}><Reveal delay={index * 0.12}><h3>{title}</h3><p>{copy}</p></Reveal></li>)}</ol>
     </section>
 
     <section className="safe" aria-labelledby="safe-title">
-      <h2 id="safe-title">Your gist is your business.</h2>
-      <div>
+      <DropTitle id="safe-title" text="Your secrets stay safe. Your stats, less so." />
+      <Reveal delay={0.15}>
         <p>{privacyCopy.short}</p>
         <p>Turn on <strong>Hide names</strong> before you post, and everybody becomes Member 1, Member 2.</p>
         <button className="text-link" onClick={openPrivacy}>Read the privacy details <ArrowRight size={16} /></button>
-      </div>
+      </Reveal>
     </section>
 
-    <section className="closer">
-      <h2>Who dey keep who up?</h2>
-      <Button onClick={begin}>Find out now <ArrowUpRight size={20} /></Button>
+    <section className="closer" aria-labelledby="closer-title">
+      <Suspense fallback={null}>
+        <EmojiStage still={still} fallback={null}>
+          <div className="closer__copy">
+            <DropTitle id="closer-title" text="Spill the tea. We’ll count the cups." />
+            <Reveal delay={0.3}>
+              <Button onClick={begin}>Wrap my chat <ArrowUpRight size={20} /></Button>
+              <small>{still ? 'Your chat’s favourite faces, piled up.' : 'Psst: poke the emojis.'}</small>
+            </Reveal>
+          </div>
+        </EmojiStage>
+      </Suspense>
     </section>
 
-    <footer className="landing__foot">
-      <a className="studio-credit studio-credit--foot" href={brand.studioUrl} target="_blank" rel="noreferrer"><KodedMark />{brand.productName}, {credit.replace('A ', 'a ')}</a>
-      <span>For chats exported from WhatsApp. Not affiliated with WhatsApp.</span>
-      <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>
-    </footer>
+    <Reveal>
+      <footer className="landing__foot">
+        <a className="studio-credit studio-credit--foot" href={brand.studioUrl} target="_blank" rel="noreferrer"><KodedMark />{brand.productName}, {credit.replace('A ', 'a ')}</a>
+        <span>For chats exported from WhatsApp. Not affiliated with WhatsApp.</span>
+        <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>
+      </footer>
+    </Reveal>
   </main>
 }

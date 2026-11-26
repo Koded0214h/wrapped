@@ -14,30 +14,30 @@ colors:
   story-shell-text: "#f8eee0"
 typography:
   display:
-    fontFamily: "Bricolage Grotesque Variable, sans-serif"
+    fontFamily: "Gluten Variable, sans-serif"
     fontSize: "clamp(4.4rem, 7.7vw, 7.1rem)"
     fontWeight: 800
     lineHeight: 0.83
     letterSpacing: "-0.04em"
   headline:
-    fontFamily: "Bricolage Grotesque Variable, sans-serif"
+    fontFamily: "Gluten Variable, sans-serif"
     fontSize: "clamp(2.8rem, 7vw, 4.7rem)"
     fontWeight: 800
     lineHeight: 0.98
     letterSpacing: "-0.03em"
   story-title:
-    fontFamily: "Bricolage Grotesque Variable, sans-serif"
+    fontFamily: "Gluten Variable, sans-serif"
     fontSize: "2.35rem"
     fontWeight: 800
     lineHeight: 0.94
     letterSpacing: "-0.03em"
   body:
-    fontFamily: "Manrope Variable, sans-serif"
+    fontFamily: "Nunito Variable, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.55
   label:
-    fontFamily: "Manrope Variable, sans-serif"
+    fontFamily: "Nunito Variable, sans-serif"
     fontSize: "0.7rem"
     fontWeight: 800
     lineHeight: 1.3
@@ -137,11 +137,11 @@ Each story theme supplies exactly seven colour roles: two gradient endpoints, su
 
 ## Typography
 
-**Display Font:** Bricolage Grotesque Variable (with sans-serif fallback)  
-**Body Font:** Manrope Variable (with sans-serif fallback)  
-**Optional Story Display Fonts:** Fredoka 600 and Bebas Neue, available as paid live previews
+**Display Font:** Gluten Variable (with sans-serif fallback), used on the landing page, app headings and every story card  
+**Body Font:** Nunito Variable (with sans-serif fallback)  
+**Optional Story Display Fonts:** Bricolage, Fredoka and Bebas Neue, available as paid live previews
 
-**Character:** Bricolage is broad, compressed, and a little unruly—the voice of a confession card being read aloud. Manrope keeps instructions, privacy copy, labels, and commerce clear enough that the joke never obscures the task.
+**Character:** Gluten is round, bouncy and hand-drawn: playful without being childish, and loud enough for a reveal. Nunito's rounded terminals match it while keeping instructions, privacy copy, labels and commerce easy to read. Card headlines may run to three lines before they are sized down.
 
 ### Hierarchy
 
@@ -164,6 +164,10 @@ The story screen uses a three-column desktop composition: contextual metadata, a
 Spacing follows an 8px-biased rhythm with compact 4px gaps and recurring 12px, 16px, 24px, and 28px steps. Story interiors use 23px padding, while application cards generally use 14–24px. Export frames remain exactly 360 × 640 CSS pixels and render at 3× for 1080 × 1920 output.
 
 **The Unbroken Card Rule.** Never compress, crop, or reflow the story into a non-9:16 dashboard tile. Move supporting controls below it.
+
+## The Sticker Deck (cards, app and landing)
+
+Every surface shares one sticker language: ink-outlined panels (2–2.5px), hard offset shadows (3–8px, no blur), round corners and a tilted pill label. Story cards sit on a soft two-tone theme gradient with the theme's accents as blurred blobs and a faint dot grain. The closing line of every card is a chat bubble with a tail. Avatars are illustrated portraits drawn from each member's id: deep-weighted skin tones, a dozen hairstyles (afro, puffs, braids, locs, wrap, bun, fade and more), and theme-coloured clothes. The landing page carries three 3D scenes (a floating deck that cuts, riffles, bridges, fans and turns over to show a card; two friends with painted, expression-swapping faces who drop onto a couch and text and laugh; and a pile of bouncy emojis you can poke), a cards section that pins and scrolls sideways, and titles that drop in word by word; they load lazily, pause offscreen, hold still for reduced motion and fall back to static art without WebGL.
 
 ## Elevation & Depth
 

@@ -293,7 +293,7 @@ function MediaDesk({ members, roast }: LayoutProps) {
 function GhostWatch({ members, roast }: LayoutProps) {
   const ghost = clearWinner(members, (member) => member.longestSilenceHrs >= 24 ? member.longestSilenceHrs : 0)
   return <div className="slide group-card group-card--ghostwatch"><div className="group-kicker"><span>14</span><span>The vanishing act</span><Ghost /></div>
-    {ghost ? <div className="missing-poster"><span>Have you seen this group member?</span><div><MemberCharacter member={ghost} size="lg" /><Ghost /></div><h2>{ghost.name}</h2><strong>Missing for {hoursOrDays(ghost.longestSilenceHrs)}</strong><p>Returned to the chat with no explanation and, statistically, no shame.</p></div>
+    {ghost ? <div className="missing-poster"><span>Have you seen this group member?</span><div><MemberCharacter member={ghost} size="lg" /><Ghost /></div><h2>{ghost.name}</h2><strong>Missing for {hoursOrDays(ghost.longestSilenceHrs)}</strong><p>Came back like they never left, and the group was happy to see them.</p></div>
       : <div className="missing-poster"><span>Missing persons report</span><div><Ghost /></div><h2>Case closed</h2><strong>No single disappearing act</strong><p>Nobody stood out for going quiet longer than a day.</p></div>}
     <div className="last-seen"><i />Last seen between two completely different topics</div><p className="group-caption">{ghost ? roast : 'Attendance was suspiciously good.'}</p>
   </div>
@@ -380,6 +380,9 @@ function rainFor(layout: LayoutType, facts: Fact[]) {
   return []
 }
 
+// A big sticker that fills the open part of a card. It sits behind the panels, so content always wins.
+const stickers: Partial<Record<LayoutType, string>> = { cover: '💬', bigNumber: '📈', leaderboard: '👑', versus: '⚡', quote: '💭', timeline: '⏳', award: '🏆', wordCloud: '🗣️', heatmap: '🌙', verdict: '🎉', highlights: '📅', split: '🍰', monthly: '📊', hourly: '⏰', quietGap: '🤫', calls: '📞', yapLeaderboard: '🎤', groupAwards: '🏅', plotTwist: '🤯', groupLanguage: '🗯️', timeCapsule: '📸', companyRoast: '💼', dynamicDuo: '🤝', replyRace: '⏱️', nightShift: '🦉', ghostWatch: '👻', groupPulse: '💓' }
+
 export function CardRenderer({ still = false, ...props }: Props & { still?: boolean }) {
   return <StillContext.Provider value={still}><Slide {...props} /></StillContext.Provider>
 }
@@ -393,5 +396,5 @@ function Slide({ card, facts, members, savage, hideNames, preview, watermark = t
   const headline = resolveTemplate(card.headline, referenced, displayMembers)
   const roast = resolveTemplate(savage && card.savageRoast ? card.savageRoast : card.roast, referenced, displayMembers)
   const Layout = layouts[card.layout]
-  return <ErrorBoundary scope={`card-${card.layout}`} fallback={<div className="card-fallback"><p>This card couldn’t load.</p><small>C-302 · Skip to the next card.</small></div>}><div ref={slideRef} className={`story-slide story-slide--${card.layout} ${motionless ? '' : 'is-animated'}`}><EmojiRain emojis={rainFor(card.layout, facts)} /><Layout {...{ card, facts, members: displayMembers, savage, hideNames, referenced, headline, roast, view, onView }} />{preview && <div className="preview-ribbon">PREVIEW ONLY · EXPORT LOCKED</div>}{watermark && <><div className="slide-watermark slide-watermark--credit"><KodedMark />{credit}</div><div className="slide-watermark">{brand.domain}</div></>}</div></ErrorBoundary>
+  return <ErrorBoundary scope={`card-${card.layout}`} fallback={<div className="card-fallback"><p>This card couldn’t load.</p><small>C-302 · Skip to the next card.</small></div>}><div ref={slideRef} className={`story-slide story-slide--${card.layout} ${motionless ? '' : 'is-animated'}`}><EmojiRain emojis={rainFor(card.layout, facts)} />{stickers[card.layout] && <div className="card-sticker" aria-hidden="true" hidden><span>{stickers[card.layout]}</span></div>}<Layout {...{ card, facts, members: displayMembers, savage, hideNames, referenced, headline, roast, view, onView }} />{preview && <div className="preview-ribbon">PREVIEW ONLY · EXPORT LOCKED</div>}{watermark && <><div className="slide-watermark slide-watermark--credit"><KodedMark />{credit}</div><div className="slide-watermark">{brand.domain}</div></>}</div></ErrorBoundary>
 }
