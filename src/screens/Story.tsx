@@ -19,7 +19,7 @@ import { cardToPng } from '../lib/exportImage'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
 import { aiServerAvailable } from '../lib/aiServer'
 import { ANALYSIS_SCHEMA_VERSION, clearAnalysis } from '../analysis/analysisCache'
-import { VideoReady } from '../components/VideoReady'
+import { ShareSheet, type Shareable } from '../components/ShareSheet'
 import { hasSoundtrack, SOUNDTRACK_URL } from '../lib/soundtrack'
 import { canMakeVideo, makeCarousel, secondsPerCard, VIDEO_WIDTH } from '../lib/video'
 
@@ -34,17 +34,7 @@ const cardLabels: Partial<Record<Card['layout'], string>> = {
   groupPulse: 'The group pulse', memoryVault: 'The memory vault', movieFinale: 'Our group chat: the movie', finalVerdict: 'The final verdict'
 }
 const cardLabel = (layout: Card['layout']) => cardLabels[layout] ?? layout.replace(/([A-Z])/g, ' $1')
-const shareLine = 'Our chat has been exposed 👀'
-const siteUrl = `https://${brand.domain}`
-const linkTargets = (() => {
-  const url = encodeURIComponent(`${siteUrl}?ref=link`), text = encodeURIComponent(shareLine)
-  return [
-    ['WhatsApp', `https://wa.me/?text=${text}%20${url}`],
-    ['X', `https://twitter.com/intent/tweet?text=${text}&url=${url}`],
-    ['Facebook', `https://www.facebook.com/sharer/sharer.php?u=${url}`],
-    ['Telegram', `https://t.me/share/url?url=${url}&text=${text}`]
-  ]
-})()
+const captionFor = (line: string, ref: string) => `${line} Run yours: https://${brand.domain}?ref=${encodeURIComponent(ref.slice(0, 40))}`
 // React StrictMode mounts effects twice in development. Keep this outside the
 // component so the same analysis cannot trigger two billable model requests.
 const autoPlanningStarted = new WeakSet<object>()
@@ -70,7 +60,7 @@ export function Story() {
   const [exportError, setExportError] = useState('')
   const [help, setHelp] = useState(true)
   const pointer = useRef<number | null>(null)
-  const [video, setVideo] = useState<{ file: File; silent: boolean } | null>(null)
+  const [shareable, setShareable] = useState<Shareable | null>(null)
   const [videoSupport, setVideoSupport] = useState<boolean | null>(null)
   const [soundtrack, setSoundtrack] = useState(false)
   const [soundOn, setSoundOn] = useState(false)
@@ -120,9 +110,9 @@ export function Story() {
     }).catch((error) => trackError(error, { step: 'ai-plan-free' }))
   }, [analysis, setAnalysis])
   useEffect(() => {
-    const key = (event: KeyboardEvent) => { if (event.target instanceof HTMLInputElement || customise || checkout) return; if (event.key === 'ArrowRight') go(index + 1); if (event.key === 'ArrowLeft') go(index - 1) }
+    const key = (event: KeyboardEvent) => { if (event.target instanceof HTMLInputElement || customise || checkout || shareable) return; if (event.key === 'ArrowRight') go(index + 1); if (event.key === 'ArrowLeft') go(index - 1) }
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key)
-  }, [checkout, customise, go, index])
+  }, [checkout, customise, go, index, shareable])
   // A re-planned deck can be shorter than the one being viewed.
   useEffect(() => { if (totalCards && index >= totalCards) setIndex(totalCards - 1) }, [index, totalCards])
   useEffect(() => {
@@ -173,20 +163,11 @@ export function Story() {
     for (let i = 0; i < totalCards; i++) await downloadNode(await prepareExportNode(i), `chat-wrapped-${i + 1}.png`)
     track('card_downloaded', { index: -1, layout: 'all' })
   })
-  const shareCurrent = () => runExport('Preparing share…', async () => {
+  const shareCurrent = () => runExport('Preparing your card…', async () => {
     const node = await prepareExportNode(index); await document.fonts.ready
     const url = await cardToPng(node, currentTheme.variables['--bg-from']); const blob = await (await fetch(url)).blob()
-    const file = new File([blob], `chat-wrapped-${index + 1}.png`, { type: 'image/png' })
-    const shareUrl = `https://${brand.domain}?ref=${encodeURIComponent(currentCard.id)}`
-    let target = 'download'
-    if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ title: 'Our Chat Wrapped', text: `${shareLine} ${shareUrl}`, files: [file] }); target = 'native' }
-      // Safari can refuse to share once rendering has used up the tap; save the image instead.
-      catch (error) { if (!(error instanceof DOMException && error.name === 'NotAllowedError')) throw error; await downloadNode(node, file.name) }
-    } else await downloadNode(node, file.name)
-    track('card_shared', { target, cardId: currentCard.id.slice(0,40) })
+    setShareable({ file: new File([blob], `chat-wrapped-${index + 1}.png`, { type: 'image/png' }), caption: captionFor('Our chat has been exposed 👀', currentCard.id) })
   })
-
   const toggleSound = () => {
     if (!player.current) { player.current = new Audio(SOUNDTRACK_URL); player.current.loop = true }
     if (soundOn) { player.current.pause(); setSoundOn(false); return }
@@ -207,7 +188,7 @@ export function Story() {
       setExportIndex(null)
       const started = performance.now()
       const made = await makeCarousel({ frames, withSound: soundtrack, signal: controller.signal, onProgress: (done) => setSharing(`Making your video… ${Math.round(done * 100)}%`), onSoundError: (error) => trackError(error, { step: 'sound' }) })
-      setVideo(made)
+      setShareable({ ...made, caption: captionFor('Our whole chat, exposed 👀', 'video') })
       timing('video_export', performance.now() - started)
     } finally { setMaking(false) }
   })
@@ -229,11 +210,11 @@ export function Story() {
           {help && <div className="swipe-hint"><span>Tap or swipe to explore</span></div>}
         </div>
       </div>
-      <div className="share-panel"><h2>Keep the evidence</h2><p>Cards export at 1080 × 1920, ready for Stories and Status.</p><div className="share-panel__actions"><Button onClick={saveCurrent} variant="secondary" disabled={making}><Download /> Save card</Button><Button onClick={shareCurrent} disabled={making}><Share2 /> Share card</Button></div>{videoSupport && <><Button wide variant="secondary" onClick={makeVideo} disabled={making}><Film /> Make a video of all cards</Button><p className="share-panel__hint">About {Math.round(totalCards * secondsPerCard(totalCards))} seconds long, in MP4.</p></>}{videoSupport === false && <p className="share-panel__hint">This browser can’t make MP4 videos. Open the site in Chrome or Safari to get one.</p>}<button className="download-all" onClick={downloadAll} disabled={making}><Sparkles /> Download all {totalCards} cards</button>{sharing && <span className="share-status" role="status">{sharing}</span>}{making && <button className="cancel-parse" onClick={() => recording.current?.abort()}>Cancel video</button>}{exportError && <p className="form-error" role="alert">{exportError}</p>}<p className="share-warning">This may show your friends’ names. Hide names before posting?</p><div className="share-links"><span>Send people the link</span>{linkTargets.map(([name, href]) => <a key={name} href={href} target="_blank" rel="noreferrer" onClick={() => track('card_shared', { target: `link-${name.toLowerCase()}` })}>{name}</a>)}</div></div>
+      <div className="share-panel"><h2>Keep the evidence</h2><p>Cards export at 1080 × 1920, ready for Stories and Status.</p><div className="share-panel__actions"><Button onClick={saveCurrent} variant="secondary" disabled={making}><Download /> Save card</Button><Button onClick={shareCurrent} disabled={making}><Share2 /> Share card</Button></div>{videoSupport && <><Button wide variant="secondary" onClick={makeVideo} disabled={making}><Film /> Make a video of all cards</Button><p className="share-panel__hint">About {Math.round(totalCards * secondsPerCard(totalCards))} seconds long, in MP4.</p></>}{videoSupport === false && <p className="share-panel__hint">This browser can’t make MP4 videos. Open the site in Chrome or Safari to get one.</p>}<button className="download-all" onClick={downloadAll} disabled={making}><Sparkles /> Download all {totalCards} cards</button>{sharing && <span className="share-status" role="status">{sharing}</span>}{making && <button className="cancel-parse" onClick={() => recording.current?.abort()}>Cancel video</button>}{exportError && <p className="form-error" role="alert">{exportError}</p>}<p className="share-warning">This may show your friends’ names. Hide names before posting?</p></div>
     </section>
     {customise && <><div className="drawer-backdrop" onClick={() => setCustomise(false)} /><Customiser onClose={() => setCustomise(false)} buy={(item) => { setCustomise(false); setCheckout(item) }} preview={<div className="customiser-preview-theme" style={style}>{renderedCard}</div>} /></>}
     {checkout && !appConfig.freeAccess && <Checkout purchase={checkout} onClose={() => { setCheckout(null) }} />}
-    {video && <VideoReady file={video.file} silent={video.silent} shareText={`${shareLine} ${siteUrl}?ref=video`} onShared={(target) => track('card_shared', { target })} onClose={() => setVideo(null)} />}
+    {shareable && <ShareSheet {...shareable} onShared={(target) => track('card_shared', { target, cardId: currentCard.id.slice(0,40) })} onClose={() => setShareable(null)} />}
     {exportCard && <div className="export-deck" aria-hidden="true"><div className="export-frame" style={style} ref={exportRef}><CardRenderer still key={exportCard.id} {...viewProps(exportCard)} card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} /></div></div>}
   </main>
 }

@@ -899,12 +899,6 @@ svg { flex: 0 0 auto; }
 .final-signoff { margin-bottom: 16px; }
 
 .share-panel__hint { margin: 7px 0 0; text-align: center; color: #6e5146; font-size: .72rem; }
-.share-links { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-.share-links span { width: 100%; color: #6e5146; font-size: .78rem; }
-.share-links a { padding: 8px 13px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px #e3d0c0; color: var(--ink); font-size: .78rem; text-decoration: none; }
-.video-ready { display: block; width: auto; max-width: 100%; max-height: 52vh; aspect-ratio: 9 / 16; margin: 18px auto; border-radius: 14px; background: #fff1e4; }
-.video-ready__actions { display: grid; gap: 9px; }
-.video-ready__note { margin: 12px 0 0; color: #6e5146; font-size: .8rem; line-height: 1.45; }
 .cover__stamp { margin-bottom: 18px; }
 
 /* Controls that were drawn white for the old dark cards. */
@@ -914,3 +908,13 @@ svg { flex: 0 0 auto; }
 .character-controls > div button.is-active { background: var(--text); }
 .award-tabs button { color: var(--text); border-color: color-mix(in srgb, var(--text) 45%, transparent); }
 .award-tabs button.is-active { color: var(--text); }
+
+.share-preview { display: block; width: auto; max-width: 100%; max-height: 34vh; aspect-ratio: 9 / 16; margin: 18px auto; border-radius: 14px; background: #fff1e4; }
+.share-caption { display: grid; gap: 7px; color: #6e5146; font-size: .8rem; }
+.share-caption textarea { width: 100%; padding: 11px 13px; border: 1px solid #e3d0c0; border-radius: 12px; background: #fff; color: var(--ink); font: inherit; font-size: .9rem; line-height: 1.45; resize: vertical; }
+.share-sheet__note { margin: 12px 0; color: #6e5146; font-size: .8rem; line-height: 1.45; }
+.share-targets { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 6px; }
+.share-targets .button { padding-inline: 10px; font-size: .85rem; }
+.share-sheet__next { padding: 11px 13px; border-radius: 12px; background: #fff1e4; color: var(--ink); }
+.share-sheet__links { display: flex; justify-content: center; gap: 18px; margin: 0 0 8px; font-size: .85rem; }
+.share-sheet__links a, .share-sheet__links button { padding: 6px 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

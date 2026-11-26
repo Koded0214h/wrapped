@@ -44,7 +44,7 @@ class HttpError extends Error { constructor(status,message){super(message);this.
 function json(res, status, value) { const body=JSON.stringify(value); res.writeHead(status, {'content-type':'application/json','content-length':Buffer.byteLength(body)}); res.end(body) }
 function html(res, status, body) { res.writeHead(status, {'content-type':'text/html; charset=utf-8','content-length':Buffer.byteLength(body)}); res.end(body) }
 function isFile(path) { return existsSync(path)&&statSync(path).isFile() }
-const mimeTypes={'.js':'text/javascript','.css':'text/css','.html':'text/html','.woff2':'font/woff2','.woff':'font/woff','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.webmanifest':'application/manifest+json','.txt':'text/plain'}
+const mimeTypes={'.js':'text/javascript','.css':'text/css','.html':'text/html','.woff2':'font/woff2','.woff':'font/woff','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.webmanifest':'application/manifest+json','.txt':'text/plain','.mp3':'audio/mpeg'}
 function now() { return new Date().toISOString() }
 function hash(value) { return createHash('sha256').update(String(value).trim().toLowerCase()).digest('hex') }
 // X-Forwarded-For is only meaningful when our own proxy appends it, and then only the last entry.
