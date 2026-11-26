@@ -23,17 +23,17 @@ function useSampleCards() {
       const tag = (analysis: typeof group, layout: string, theme?: Sample['theme']): Sample => ({ analysis, layout, theme })
       setCards({
         decks: {
-          dm: [tag(couple, 'split', 'bubblegum'), tag(couple, 'emojiBoard'), tag(couple, 'calls', 'mint'), tag(couple, 'hourly', 'midnight')],
+          dm: [tag(couple, 'split'), tag(couple, 'emojiBoard'), tag(couple, 'calls'), tag(couple, 'hourly')],
           group: [tag(group, 'groupNumbers'), tag(group, 'yapLeaderboard'), tag(group, 'ghostWatch'), tag(group, 'companyRoast')]
         },
         rail: [
-          { sample: tag(couple, 'quietGap', 'detty'), caption: 'When una go quiet.', kind: '1:1' },
+          { sample: tag(couple, 'quietGap'), caption: 'When you both go quiet.', kind: '1:1' },
           { sample: tag(group, 'characterCast'), caption: 'Everybody gets a character.', kind: 'Group' },
-          { sample: tag(couple, 'hourly', 'midnight'), caption: 'The hour una gist pass.', kind: '1:1' },
+          { sample: tag(couple, 'hourly'), caption: 'Your peak gist hour.', kind: '1:1' },
           { sample: tag(group, 'nightShift'), caption: 'Who no dey sleep.', kind: 'Group' },
-          { sample: tag(couple, 'calls', 'mint'), caption: 'Calls count too.', kind: '1:1' },
+          { sample: tag(couple, 'calls'), caption: 'Calls count too.', kind: '1:1' },
           { sample: tag(group, 'companyRoast'), caption: 'Your group, as a company.', kind: 'Group' },
-          { sample: tag(couple, 'emojiBoard', 'lagos'), caption: 'The emojis una live by.', kind: '1:1' },
+          { sample: tag(couple, 'emojiBoard'), caption: 'The emojis you live by.', kind: '1:1' },
           { sample: tag(group, 'finalVerdict'), caption: 'One verdict to end it.', kind: 'Group' }
         ]
       })
@@ -129,7 +129,7 @@ export function Landing({ openPrivacy }: { openPrivacy: () => void }) {
     </section>
 
     <section className="closer">
-      <h2>Who dey keep who awake?</h2>
+      <h2>Who dey keep who up?</h2>
       <Button onClick={begin}>Find out now <ArrowUpRight size={20} /></Button>
     </section>
 

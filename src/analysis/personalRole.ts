@@ -19,20 +19,20 @@ const words = (member: Member) => member.avgMessageWords ?? 0
 const habit = (titles: string[], emoji: string, count: Habit['count'], minimum: number, describe: Habit['describe']): Habit => ({ titles, emoji, count, rate: per(count), minimum, describe })
 
 const habits: Habit[] = [
-  habit(['The Sticker Foot Soldier', 'The Sticker Specialist', 'The Reaction Sticker Person'], '🪖', (m) => m.stickers ?? 0, 3, (m, n) => `${n} stickers in ${m.messages} messages. The sticker army no dey sleep.`),
+  habit(['The Sticker Foot Soldier', 'The Sticker Specialist', 'The Reaction Sticker Person'], '🪖', (m) => m.stickers ?? 0, 3, (m, n) => `${n} stickers in ${m.messages} messages. The sticker army never sleeps.`),
   habit(['The After-Hours Regular', 'The 2AM Contributor', 'The Night Shift Volunteer'], '🌙', (m) => m.nightMessages, 3, (m, n) => `${n} of ${m.messages} messages landed after midnight.`),
-  habit(['The Show-and-Tell Person', 'The Gallery Curator', 'The Picture Speaker'], '📸', (m) => m.mediaCount - (m.stickers ?? 0), 3, (m, n) => `${n} of ${m.messages} messages were media. Why type am when you fit show am?`),
-  habit(['The Hype Audience', 'The Easy Laugh', 'The Gist Cheerleader'], '😂', (m) => m.laughs, 3, (m, n) => `Laughed in ${n} of ${m.messages} messages. Every joke get support here.`),
-  habit(['The Link Plug', 'The Source Provider'], '🔗', (m) => m.linkCount ?? 0, 3, (_, n) => `${n} links shared. If e dey online, e don land here.`),
+  habit(['The Show-and-Tell Person', 'The Gallery Curator', 'The Picture Speaker'], '📸', (m) => m.mediaCount - (m.stickers ?? 0), 3, (m, n) => `${n} of ${m.messages} messages were media. Why type when you can show?`),
+  habit(['The Hype Audience', 'The Easy Laugh', 'The Gist Cheerleader'], '😂', (m) => m.laughs, 3, (m, n) => `Laughed in ${n} of ${m.messages} messages. Every joke gets support.`),
+  habit(['The Link Plug', 'The Source Provider'], '🔗', (m) => m.linkCount ?? 0, 3, (_, n) => `${n} links shared. If it’s online, it lands here.`),
   habit(['The Gist Igniter', 'The Conversation Opener'], '🔥', (m) => m.starts, 3, (_, n) => `Opened fresh gist ${n} times after the chat went quiet.`),
   habit(['The Reply Magnet', 'The Talking Point'], '🧲', (m) => m.repliesReceived ?? 0, 5, (_, n) => `People answered straight after them ${n} times.`),
   habit(['The Location Checker', 'The Attendance Officer'], '📍', (m) => m.locationQuestions ?? 0, 2, (_, n) => `Asked where people dey ${n} times.`),
-  habit(['The Peace Ambassador', 'The Soft Landing'], '🕊️', (m) => m.sorrys, 3, (_, n) => `Said sorry ${n} times. Wahala no stay long.`),
+  habit(['The Peace Ambassador', 'The Soft Landing'], '🕊️', (m) => m.sorrys, 3, (_, n) => `Said sorry ${n} times. No long wahala.`),
   { titles: ['The Full Gist Giver', 'The Detail Person', 'The Long-Form Writer'], emoji: '📝', count: words, rate: words, minimum: 12, describe: (_, n) => `About ${Math.round(n)} words every time they press send.` }
 ]
 
 const cameos: { upTo: number; titles: string[]; emoji: string; describe: (messages: number) => string }[] = [
-  { upTo: 1, titles: ['The One-Time Cameo', 'The Single Appearance'], emoji: '🎬', describe: () => 'One message in this whole export. Short scene, but e dey on record.' },
+  { upTo: 1, titles: ['The One-Time Cameo', 'The Single Appearance'], emoji: '🎬', describe: () => 'One message in this whole export. Short scene, but it’s on record.' },
   { upTo: 4, titles: ['The Special Guest', 'The Surprise Appearance'], emoji: '✨', describe: (n) => `Showed up with ${n} messages. Rare, like public holiday.` },
   { upTo: MIN_MESSAGES_FOR_HABIT - 1, titles: ['The Occasional Visitor', 'The Pop-In Person'], emoji: '👋', describe: (n) => `${n} messages. Passes through, greets the matter, moves on.` }
 ]

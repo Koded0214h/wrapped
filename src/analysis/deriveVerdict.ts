@@ -12,49 +12,49 @@ export function deriveVerdict(members: Member[], totalMessages: number) {
 
   if (members.length <= 2) {
     if (shareGap <= 12 && replyAverage > 0 && replyAverage <= 15) return {
-      title: 'Both of Una Dey Reply',
-      blurb: `Na only ${shareGap} percentage points separate una messages, and reply dey take ${replyAverage} minutes on average. Both sides put hand.`
+      title: 'You Both Dey Reply',
+      blurb: `Only ${shareGap} percentage points separate your messages, and replies take ${replyAverage} minutes on average. Both sides show up.`
     }
     if (nightPct >= 20) return {
-      title: 'Midnight No Get Gate',
-      blurb: `${nightPct}% of the messages enter after midnight. Sleep wait while una continue gist.`
+      title: 'Midnight Gist Club',
+      blurb: `${nightPct}% of your messages came after midnight. Sleep can wait.`
     }
     if (replyAverage > 0 && replyAverage <= 8) return {
-      title: 'Sharp Sharp Reply',
-      blurb: `Reply dey take ${replyAverage} minutes on average. Notification no dey wait for this chat.`
+      title: 'Sharp Sharp Replies',
+      blurb: `Replies take ${replyAverage} minutes on average. Notifications no dey wait here.`
     }
     if (shareGap >= 25) return {
-      title: 'One Person Type Pass',
-      blurb: `${shareGap} percentage points separate una messages. One phone do plenty of the typing.`
+      title: 'One Person Types More',
+      blurb: `${shareGap} percentage points separate your messages. One phone did most of the work.`
     }
     if (replyAverage >= 60) return {
-      title: 'Reply Wey Take Time',
-      blurb: `Reply dey take ${replyAverage} minutes on average. Any hot gist fit cool before answer land.`
+      title: 'Slow Replies Sha',
+      blurb: `Replies take ${replyAverage} minutes on average. Hot gist fit cool before the answer.`
     }
     return {
       title: 'Two-Person Gist',
-      blurb: `${shareGap} percentage points separate una messages. Both phones still show for the chat.`
+      blurb: `${shareGap} percentage points separate your messages. Both phones still showed up.`
     }
   }
 
   if ((shares[0] ?? 0) >= 40) return {
-    title: 'One Person Type Pass Everybody',
-    blurb: `The person wey send pass everybody get ${Math.round(shares[0])}% of all messages. Others still type, but gap dey.`
+    title: 'One Person Carries the Chat',
+    blurb: `One person sent ${Math.round(shares[0])}% of all messages. Others dey try, but the gap is clear.`
   }
   if (nightPct >= 20) return {
     title: 'Midnight Typing Committee',
-    blurb: `${nightPct}% of the messages enter after midnight. Sleep no fit stop this group.`
+    blurb: `${nightPct}% of the messages came after midnight. Sleep couldn’t stop this group.`
   }
   if (laughPct >= 14) return {
-    title: 'Laugh No Dey Finish',
-    blurb: `Laugh show for ${laughPct}% of the chat. Una dey encourage joke, whether e strong or not.`
+    title: 'The Laughs Never Stop',
+    blurb: `Laughs show up in ${laughPct}% of the chat. Every joke gets support, strong or not.`
   }
   if (mediaPct >= 20) return {
-    title: 'Media Full Ground',
-    blurb: `${mediaPct}% of the chat na photo, video or link. Una no dey use only text talk.`
+    title: 'Media Everywhere',
+    blurb: `${mediaPct}% of the chat is photo, video or link. You no dey only type.`
   }
   return {
     title: 'Everybody Put Hand',
-    blurb: `Na everybody type. Nobody pass 40% of all messages for the group.`
+    blurb: `Nobody sent more than 40% of the messages. Everybody showed up.`
   }
 }

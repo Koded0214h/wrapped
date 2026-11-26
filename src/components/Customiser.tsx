@@ -30,7 +30,7 @@ export function Customiser({ onClose, buy, preview }: { onClose: () => void; buy
       </div>
     </div>
     <div className="customiser__section"><h3>Themes</h3><div className="theme-list">{themes.map((item) => <button key={item.id} className={theme === item.id ? 'theme-option is-active' : 'theme-option'} onClick={() => pickTheme(item.id)}>
-      <i style={{ background: `linear-gradient(135deg, ${item.variables['--bg-from']}, ${item.variables['--bg-to']})` }} />
+      <i style={{ background: item.variables['--accent-2'] }} />
       <span><strong>{item.name}</strong><small>{item.vibe}</small></span>
       {theme === item.id && (item.free || has('theme')) ? <Check /> : !item.free && !has('theme') ? <b>{theme === item.id ? 'Preview' : <><LockKeyhole size={13} /> {products.theme.price}</>}</b> : null}
     </button>)}</div></div>

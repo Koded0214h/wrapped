@@ -11,7 +11,7 @@ function keepSvgPaint(node: HTMLElement) {
   }
 }
 
-export function cardToPng(node: HTMLElement, backgroundColor: string) {
+export function cardToPng(node: HTMLElement, backgroundColor: string, pixelRatio = 3) {
   keepSvgPaint(node)
-  return toPng(node, { pixelRatio: 3, cacheBust: true, backgroundColor })
+  return toPng(node, { pixelRatio, cacheBust: true, backgroundColor })
 }
