@@ -9,6 +9,7 @@ import { useApp } from '../store/useApp'
 import { track } from '../lib/telemetry'
 import { appConfig, privacyCopy } from '../config/appConfig'
 import { brand } from '../config/brand'
+import { KodedMark, credit } from '../components/KodedLabs'
 
 type Kind = 'dm' | 'group'
 
@@ -89,7 +90,7 @@ export function Landing({ openPrivacy }: { openPrivacy: () => void }) {
   const sample = () => { setStep('upload'); window.scrollTo(0, 0) }
   const price = appConfig.freeAccess ? 'Free, with every theme included.' : 'Free to make and download. Pay only for a custom look.'
   return <main className="landing">
-    <nav className="landing__nav"><Brand /><button className="text-link" onClick={openPrivacy}><LockKeyhole size={16} /> Privacy</button></nav>
+    <nav className="landing__nav"><div className="landing__brand"><Brand /><a className="studio-credit" href={brand.studioUrl} target="_blank" rel="noreferrer"><KodedMark />{credit}</a></div><button className="text-link" onClick={openPrivacy}><LockKeyhole size={16} /> Privacy</button></nav>
 
     <section className="hero">
       <div className="hero__copy">
@@ -133,7 +134,7 @@ export function Landing({ openPrivacy }: { openPrivacy: () => void }) {
     </section>
 
     <footer className="landing__foot">
-      <span>{brand.productName}</span>
+      <a className="studio-credit studio-credit--foot" href={brand.studioUrl} target="_blank" rel="noreferrer"><KodedMark />{brand.productName}, {credit.replace('A ', 'a ')}</a>
       <span>For chats exported from WhatsApp. Not affiliated with WhatsApp.</span>
       <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>
     </footer>

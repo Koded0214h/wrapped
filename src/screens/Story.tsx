@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { flushSync } from 'react-dom'
 import { Download, EyeOff, Pause, Play, Settings2, Share2, Sparkles, X } from 'lucide-react'
-import { toPng } from 'html-to-image'
 import { Brand } from '../components/Brand'
 import { Button } from '../components/Button'
 import { Checkout } from '../components/Checkout'
@@ -16,6 +15,7 @@ import { getTheme } from '../themes/themes'
 import { track, timing, trackError } from '../lib/telemetry'
 import { appConfig } from '../config/appConfig'
 import { brand } from '../config/brand'
+import { cardToPng } from '../lib/exportImage'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
 import { aiServerAvailable } from '../lib/aiServer'
 import { ANALYSIS_SCHEMA_VERSION, clearAnalysis } from '../analysis/analysisCache'
@@ -114,7 +114,7 @@ export function Story() {
 
   const downloadNode = async (node: HTMLElement, fileName: string) => {
     const started = performance.now(); await document.fonts.ready
-    const url = await toPng(node, { pixelRatio: 3, cacheBust: true, backgroundColor: currentTheme.variables['--bg-from'] })
+    const url = await cardToPng(node, currentTheme.variables['--bg-from'])
     const link = document.createElement('a'); link.download = fileName; link.href = url; link.click()
     timing('png_export', performance.now() - started)
   }
@@ -152,7 +152,7 @@ export function Story() {
   })
   const shareCurrent = () => runExport('Preparing share…', async () => {
     const node = await prepareExportNode(index); await document.fonts.ready
-    const url = await toPng(node, { pixelRatio: 3, cacheBust: true, backgroundColor: currentTheme.variables['--bg-from'] }); const blob = await (await fetch(url)).blob()
+    const url = await cardToPng(node, currentTheme.variables['--bg-from']); const blob = await (await fetch(url)).blob()
     const file = new File([blob], `chat-wrapped-${index + 1}.png`, { type: 'image/png' })
     const shareUrl = `https://${brand.domain}?ref=${encodeURIComponent(currentCard.id)}`
     let target = 'download'

@@ -8,6 +8,7 @@ import { clearWinner, isPendingContext, qualifiesForReplyRank } from '../analysi
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { MemberCharacter } from '../components/MemberCharacter'
 import { brand } from '../config/brand'
+import { KodedMark, credit } from '../components/KodedLabs'
 import { CountUp, EmojiRain, StillContext, useStill } from './motion'
 import { topicOf } from '../analysis/topics'
 import { TopicNote } from './TopicNote'
@@ -389,5 +390,5 @@ function Slide({ card, facts, members, savage, hideNames, preview, watermark = t
   const headline = resolveTemplate(card.headline, referenced, displayMembers)
   const roast = resolveTemplate(savage && card.savageRoast ? card.savageRoast : card.roast, referenced, displayMembers)
   const Layout = layouts[card.layout]
-  return <ErrorBoundary scope={`card-${card.layout}`} fallback={<div className="card-fallback"><p>This card couldn’t load.</p><small>C-302 · Skip to the next card.</small></div>}><div className={`story-slide story-slide--${card.layout} ${motionless ? '' : 'is-animated'}`}><EmojiRain emojis={rainFor(card.layout, facts)} /><Layout {...{ card, facts, members: displayMembers, savage, hideNames, referenced, headline, roast, view, onView }} />{preview && <div className="preview-ribbon">PREVIEW ONLY · EXPORT LOCKED</div>}{watermark && <div className="slide-watermark">{brand.domain}</div>}</div></ErrorBoundary>
+  return <ErrorBoundary scope={`card-${card.layout}`} fallback={<div className="card-fallback"><p>This card couldn’t load.</p><small>C-302 · Skip to the next card.</small></div>}><div className={`story-slide story-slide--${card.layout} ${motionless ? '' : 'is-animated'}`}><EmojiRain emojis={rainFor(card.layout, facts)} /><Layout {...{ card, facts, members: displayMembers, savage, hideNames, referenced, headline, roast, view, onView }} />{preview && <div className="preview-ribbon">PREVIEW ONLY · EXPORT LOCKED</div>}{watermark && <><div className="slide-watermark slide-watermark--credit"><KodedMark />{credit}</div><div className="slide-watermark">{brand.domain}</div></>}</div></ErrorBoundary>
 }
