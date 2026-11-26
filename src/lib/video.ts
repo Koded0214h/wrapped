@@ -1,12 +1,16 @@
 import { loadSoundtrack } from './soundtrack'
+import { RAIN_DROPS, rainDrop } from '../slides/motion'
 
 export const VIDEO_WIDTH = 720
 export const VIDEO_HEIGHT = 1280
 const FRAMES_PER_SECOND = 30
-const SLIDE_SECONDS = 0.35
+const SLIDE_SECONDS = 0.5
+/** The moments of a card's opening animation that are captured; the video blends between them. */
+export const MOMENTS = [0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.72, 0.85, 1, 1.15, 1.3, 1.5, 1.75, 2.2]
 const FADE_SECONDS = 1.2
 const SAMPLE_RATE = 48000
-const VIDEO_BITRATE = 4_000_000
+// Keeps a full video under WhatsApp's 16 MB media limit.
+const VIDEO_BITRATE = 2_000_000
 // Short enough to post as one status.
 const LONGEST_SECONDS = 59
 
@@ -45,9 +49,11 @@ async function picture(url: string) {
   return image
 }
 
+export type VideoCard = { moments: string[]; rain: string[] }
 type Options = {
-  /** One still image per card, as a data URL, in story order. */
-  frames: string[]
+  /** Each card's opening animation, captured at MOMENTS, in story order. */
+  cards: VideoCard[]
+  background: string
   withSound?: boolean
   signal?: AbortSignal
   onProgress?: (done: number) => void
@@ -57,26 +63,78 @@ type Options = {
 const stopIfCancelled = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError') }
 
 /** Writes the cards as an MP4 carousel, frame by frame, as fast as the device can encode. */
-export async function makeCarousel({ frames, withSound, signal, onProgress, onSoundError }: Options) {
+export async function makeCarousel({ cards, background, withSound, signal, onProgress, onSoundError }: Options) {
   const { AudioBufferSource, BufferTarget, CanvasSource, Mp4OutputFormat, Output, canEncodeAudio } = await writer()
-  const images = await Promise.all(frames.map(picture))
+  const images = await Promise.all(cards.map((card) => Promise.all(card.moments.map(picture))))
   const canvas = document.createElement('canvas')
   canvas.width = VIDEO_WIDTH
   canvas.height = VIDEO_HEIGHT
   const paint = canvas.getContext('2d')!
-  const each = secondsPerCard(images.length)
-  const total = each * images.length
+  const each = secondsPerCard(cards.length)
+  const total = each * cards.length
+  const scale = VIDEO_WIDTH / 360
 
+  // Blends the two captured moments either side of this time, so the motion runs smoothly.
+  const cardAt = (index: number, time: number, alpha = 1) => {
+    const shots = images[index]
+    let at = MOMENTS.findIndex((moment) => moment > time) - 1
+    if (at < 0) at = time < 0 ? 0 : shots.length - 1
+    const next = Math.min(shots.length - 1, at + 1)
+    const blend = next === at ? 0 : Math.min(1, Math.max(0, (time - MOMENTS[at]) / (MOMENTS[next] - MOMENTS[at])))
+    paint.globalAlpha = alpha
+    paint.drawImage(shots[at], 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+    if (blend > 0) { paint.globalAlpha = alpha * blend; paint.drawImage(shots[next], 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT) }
+    paint.globalAlpha = 1
+  }
+
+  const rain = (emojis: string[], time: number) => {
+    if (!emojis.length) return
+    paint.textAlign = 'center'
+    paint.textBaseline = 'middle'
+    for (let drop = 0; drop < RAIN_DROPS; drop++) {
+      const { left, rem, delay, duration, spin } = rainDrop(drop)
+      const progress = (time - delay) / duration
+      if (progress <= 0 || progress >= 1) continue
+      paint.save()
+      paint.globalAlpha = progress < 0.12 ? progress / 0.12 : progress > 0.8 ? (1 - progress) / 0.2 : 1
+      paint.translate(left * VIDEO_WIDTH + 10 * scale, (-0.12 + progress ** 1.6 * 1.2) * VIDEO_HEIGHT)
+      paint.rotate(spin * progress * Math.PI / 180)
+      paint.font = `${rem * 16 * scale}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
+      paint.fillText(emojis[drop % emojis.length], 0, 0)
+      paint.restore()
+    }
+  }
+
+  // Overshoots a little and settles, like the card swap in the app.
+  const settle = (x: number) => 1 + 2.2 * (x - 1) ** 3 + 1.2 * (x - 1) ** 2
   const draw = (time: number) => {
-    const index = Math.min(images.length - 1, Math.floor(time / each))
+    const index = Math.min(cards.length - 1, Math.floor(time / each))
     const into = time - index * each
-    const slide = index === 0 ? 1 : Math.min(1, into / SLIDE_SECONDS)
-    const offset = Math.round((1 - slide) ** 3 * VIDEO_WIDTH)
-    if (offset > 0) paint.drawImage(images[index - 1], offset - VIDEO_WIDTH, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
-    paint.drawImage(images[index], offset, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+    paint.fillStyle = background
+    paint.fillRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+    const swap = index === 0 ? 1 : Math.min(1, into / SLIDE_SECONDS)
+    if (swap < 1) {
+      // The last card tips away to the left.
+      paint.save()
+      paint.translate(VIDEO_WIDTH / 2 - swap * VIDEO_WIDTH * 0.6, VIDEO_HEIGHT / 2)
+      paint.rotate(-swap * 8 * Math.PI / 180)
+      paint.scale(1 - swap * 0.12, 1 - swap * 0.12)
+      paint.translate(-VIDEO_WIDTH / 2, -VIDEO_HEIGHT / 2)
+      cardAt(index - 1, 9, 1 - swap)
+      paint.restore()
+    }
+    const enter = settle(swap)
+    paint.save()
+    paint.translate(VIDEO_WIDTH / 2 + (1 - enter) * VIDEO_WIDTH * 0.45, VIDEO_HEIGHT / 2)
+    paint.rotate((1 - enter) * 7 * Math.PI / 180)
+    paint.scale(0.9 + 0.1 * enter, 0.9 + 0.1 * enter)
+    paint.translate(-VIDEO_WIDTH / 2, -VIDEO_HEIGHT / 2)
+    cardAt(index, into, Math.min(1, swap * 2.5))
+    paint.restore()
+    rain(cards[index].rain, into)
     // Progress bars across the top, as on a status.
-    const gap = 4, width = (VIDEO_WIDTH - 40 - gap * (images.length - 1)) / images.length
-    images.forEach((_, i) => {
+    const gap = 4, width = (VIDEO_WIDTH - 40 - gap * (cards.length - 1)) / cards.length
+    cards.forEach((_, i) => {
       const x = 20 + i * (width + gap)
       paint.fillStyle = 'rgba(32,20,17,.18)'
       paint.fillRect(x, 16, width, 6)
@@ -89,6 +147,8 @@ export async function makeCarousel({ frames, withSound, signal, onProgress, onSo
   let sound: AudioBuffer | undefined
   if (withSound) {
     try {
+      // Firefox, among others, cannot write AAC itself, so it gets an encoder to do it with.
+      if (!(await canEncodeAudio('aac'))) (await import('@mediabunny/aac-encoder')).registerAacEncoder()
       if (!(await canEncodeAudio('aac'))) throw new Error('E-305: This browser cannot add sound to MP4.')
       sound = await soundFor(total)
     } catch (error) { onSoundError?.(error) }

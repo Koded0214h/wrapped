@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { flushSync } from 'react-dom'
 import { Download, EyeOff, Film, Pause, Play, Settings2, Share2, Sparkles, Volume2, VolumeX, X } from 'lucide-react'
 import { Brand } from '../components/Brand'
 import { Button } from '../components/Button'
 import { Checkout } from '../components/Checkout'
 import { Customiser } from '../components/Customiser'
-import { CardRenderer, type CardView } from '../slides/CardLayouts'
+import { CardRenderer, signoffCard, type CardView } from '../slides/CardLayouts'
 import { clearWinner } from '../analysis/fairness'
 import type { Card } from '../analysis/types'
 import { ownsPurchase, useApp, type Purchase } from '../store/useApp'
@@ -15,19 +15,19 @@ import { getTheme } from '../themes/themes'
 import { track, timing, trackError } from '../lib/telemetry'
 import { appConfig } from '../config/appConfig'
 import { brand } from '../config/brand'
-import { cardToPng } from '../lib/exportImage'
+import { cardToPng, freezeAt } from '../lib/exportImage'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
 import { aiServerAvailable } from '../lib/aiServer'
 import { ANALYSIS_SCHEMA_VERSION, clearAnalysis } from '../analysis/analysisCache'
 import { ShareSheet, type Shareable } from '../components/ShareSheet'
 import { hasSoundtrack, SOUNDTRACK_URL } from '../lib/soundtrack'
-import { canMakeVideo, makeCarousel, secondsPerCard, VIDEO_WIDTH } from '../lib/video'
+import { canMakeVideo, makeCarousel, MOMENTS, secondsPerCard, VIDEO_WIDTH, type VideoCard } from '../lib/video'
 
 const cardLabels: Partial<Record<Card['layout'], string>> = {
   cover: 'The opening', bigNumber: 'The number that stood out', leaderboard: 'Who did it most?', versus: 'Head to head', quote: 'What kept happening', timeline: 'How it unfolded', award: 'An award was earned', wordCloud: 'The words that stayed', heatmap: 'When the chat came alive', verdict: 'The closing verdict',
   groupNumbers: 'The group in numbers', yapLeaderboard: 'The yap leaderboard', characterCast: 'Everyone has a character',
   groupAwards: 'The group chat awards', socialGraph: 'Who runs this group?', plotTwist: 'The biggest plot twist',
-  groupLanguage: "The group's language", timeCapsule: 'The moments that defined us', companyRoast: 'If this group were a company',
+  groupLanguage: "The group's language", timeCapsule: 'The moments that defined us', companyRoast: 'If this group started a business',
   dynamicDuo: 'The dynamic duo', replyRace: 'The reply race', nightShift: 'The night shift', mediaDesk: 'The media department',
   ghostWatch: 'The vanishing act', laughTrack: 'The laugh track', conversationSpark: 'Who keeps pressing start?',
   highlights: 'Chat highlights', split: 'Who typed more', monthly: 'Month by month', hourly: 'Round the clock', quietGap: 'The quiet stretch', emojiBoard: 'Your top emojis', calls: 'The call log',
@@ -60,15 +60,20 @@ export function Story() {
   const [exportError, setExportError] = useState('')
   const [help, setHelp] = useState(true)
   const pointer = useRef<number | null>(null)
+  const reducedMotion = useReducedMotion()
   const [shareable, setShareable] = useState<Shareable | null>(null)
   const [videoSupport, setVideoSupport] = useState<boolean | null>(null)
   const [soundtrack, setSoundtrack] = useState(false)
   const [soundOn, setSoundOn] = useState(false)
   const player = useRef<HTMLAudioElement | null>(null)
+  // On until the person turns it off.
+  const wantsSound = useRef(true)
   const recording = useRef<AbortController | null>(null)
   const [making, setMaking] = useState(false)
   const exportRef = useRef<HTMLDivElement | null>(null)
   const [exportIndex, setExportIndex] = useState<number | null>(null)
+  // Seconds into the card while video frames are captured; null renders the finished card.
+  const [exportClock, setExportClock] = useState<number | null>(null)
   const [views, setViews] = useState<Record<string, CardView>>({})
   const viewProps = (card: Card) => ({ view: views[card.id], onView: (key: string, value: unknown) => setViews((current) => ({ ...current, [card.id]: { ...current[card.id], [key]: value } })) })
   const currentTheme = getTheme(theme)
@@ -80,7 +85,7 @@ export function Story() {
     const winner = kind === 'fast_reply' ? ofKind.find((fact) => fact.context?.rank === 1 && fact.context.gap !== 0) : clearWinner(ofKind, (fact) => Number(fact.value))
     return winner ? [winner.id] : []
   })
-  const cards = useMemo(() => analysis ? (analysis.chatType !== 'group' && has('awards') && bonusFactIds.length === 2 ? bonusCards(analysis.cards, bonusFactIds) : analysis.cards) : [], [analysis, bonusFactIds.join('|'), has])
+  const cards = useMemo(() => analysis ? [...(analysis.chatType !== 'group' && has('awards') && bonusFactIds.length === 2 ? bonusCards(analysis.cards, bonusFactIds) : analysis.cards), signoffCard] : [], [analysis, bonusFactIds.join('|'), has])
   const totalCards = cards.length
   const currentCard = cards[index]
   const exportCard = exportIndex === null ? null : cards[exportIndex]
@@ -99,6 +104,20 @@ export function Story() {
 
   useEffect(() => { void hasSoundtrack().then(setSoundtrack); void canMakeVideo().then(setVideoSupport) }, [])
   useEffect(() => () => { player.current?.pause(); recording.current?.abort() }, [])
+  // The music starts on its own. A browser that blocks sound until a tap gets it on the first tap.
+  useEffect(() => {
+    if (!soundtrack) return
+    const start = () => {
+      if (!wantsSound.current || making) return
+      player.current ??= Object.assign(new Audio(SOUNDTRACK_URL), { loop: true })
+      void player.current.play().then(() => { setSoundOn(true); stopWaiting() }).catch(() => {})
+    }
+    const stopWaiting = () => { window.removeEventListener('pointerdown', start); window.removeEventListener('keydown', start) }
+    start()
+    window.addEventListener('pointerdown', start)
+    window.addEventListener('keydown', start)
+    return stopWaiting
+  }, [soundtrack, making])
   useEffect(() => { track('story_viewed', { chatType: analysis?.chatType ?? 'unknown', cards: totalCards }) }, [analysis?.chatType, totalCards])
   useEffect(() => {
     if (!appConfig.aiPlanner || !analysis || analysis.planner === 'ai' || analysis.aiAttempted || autoPlanningStarted.has(analysis)) return
@@ -169,8 +188,9 @@ export function Story() {
     setShareable({ file: new File([blob], `chat-wrapped-${index + 1}.png`, { type: 'image/png' }), caption: captionFor('Our chat has been exposed 👀', currentCard.id) })
   })
   const toggleSound = () => {
-    if (!player.current) { player.current = new Audio(SOUNDTRACK_URL); player.current.loop = true }
-    if (soundOn) { player.current.pause(); setSoundOn(false); return }
+    player.current ??= Object.assign(new Audio(SOUNDTRACK_URL), { loop: true })
+    if (soundOn) { wantsSound.current = false; player.current.pause(); setSoundOn(false); return }
+    wantsSound.current = true
     void player.current.play().then(() => setSoundOn(true)).catch((error) => trackError(error, { step: 'sound' }))
   }
   const makeVideo = () => runExport('Preparing your video…', async () => {
@@ -179,24 +199,33 @@ export function Story() {
     setMaking(true); setAutoAdvance(false); player.current?.pause(); setSoundOn(false)
     try {
       await document.fonts.ready
-      const frames: string[] = []
+      const captured: VideoCard[] = []
       for (let i = 0; i < totalCards; i++) {
         if (controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError')
-        setSharing(`Preparing card ${i + 1} of ${totalCards}…`)
-        frames.push(await cardToPng(await prepareExportNode(i), currentTheme.variables['--bg-from'], VIDEO_WIDTH / 360))
+        setSharing(`Animating card ${i + 1} of ${totalCards}…`)
+        flushSync(() => setExportClock(0))
+        const node = await prepareExportNode(i)
+        const moments: string[] = []
+        for (const moment of MOMENTS) {
+          flushSync(() => setExportClock(moment))
+          const release = freezeAt(node, moment)
+          try { moments.push(await cardToPng(node, currentTheme.variables['--bg-from'], VIDEO_WIDTH / 360)) } finally { release() }
+        }
+        captured.push({ moments, rain: node.querySelector<HTMLElement>('[data-rain]')?.dataset.rain?.split(' ').filter(Boolean) ?? [] })
       }
+      setExportClock(null)
       setExportIndex(null)
       const started = performance.now()
-      const made = await makeCarousel({ frames, withSound: soundtrack, signal: controller.signal, onProgress: (done) => setSharing(`Making your video… ${Math.round(done * 100)}%`), onSoundError: (error) => trackError(error, { step: 'sound' }) })
+      const made = await makeCarousel({ cards: captured, background: currentTheme.variables['--bg-from'], withSound: soundtrack, signal: controller.signal, onProgress: (done) => setSharing(`Making your video… ${Math.round(done * 100)}%`), onSoundError: (error) => trackError(error, { step: 'sound' }) })
       setShareable({ ...made, caption: captionFor('Our whole chat, exposed 👀', 'video') })
       timing('video_export', performance.now() - started)
-    } finally { setMaking(false) }
+    } finally { setMaking(false); setExportClock(null) }
   })
 
   const renderedCard = <CardRenderer {...viewProps(currentCard)} card={currentCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />
 
   return <main className="story-page is-unlocked">
-    <nav className="story-nav"><Brand /><div><button onClick={() => setAutoAdvance(!autoAdvance)}>{autoAdvance ? <Pause /> : <Play />} {autoAdvance ? 'Pause' : 'Auto-play'}</button>{soundtrack && <button onClick={toggleSound} aria-pressed={soundOn}>{soundOn ? <Volume2 /> : <VolumeX />} Sound</button>}<button onClick={() => setCustomise(true)}><Settings2 /> Customise</button><button className="story-nav__close" onClick={() => setStep('landing')} aria-label="Close story"><X /></button></div></nav>
+    <nav className="story-nav"><Brand /><div><button onClick={() => setAutoAdvance(!autoAdvance)}>{autoAdvance ? <Pause /> : <Play />} {autoAdvance ? 'Pause' : 'Auto-play'}</button>{soundtrack && <button onClick={toggleSound} aria-pressed={soundOn}>{soundOn ? <Volume2 /> : <VolumeX />} {soundOn ? 'Sound on' : 'Play sound'}</button>}<button onClick={() => setCustomise(true)}><Settings2 /> Customise</button><button className="story-nav__close" onClick={() => setStep('landing')} aria-label="Close story"><X /></button></div></nav>
     <section className="story-layout">
       <div className="story-meta"><span>Your Chat Wrapped</span><h1>{cardLabel(currentCard.layout)}</h1><p>{index + 1} of {totalCards}</p><div className="story-meta__privacy"><EyeOff /><span>{hideNames ? 'Names are hidden' : 'Names are visible'}<small>Use Customise before sharing.</small></span></div></div>
       <div className="story-stage">
@@ -204,7 +233,7 @@ export function Story() {
         <div className="story-frame-wrap">
           <button className="tap-zone tap-zone--left" onClick={() => go(index - 1)} aria-label="Previous card" />
           <div className="story-frame" style={style} onPointerDown={(e) => { pointer.current = e.clientX }} onPointerUp={(e) => { if (pointer.current !== null && Math.abs(e.clientX - pointer.current) > 45) go(index + (e.clientX < pointer.current ? 1 : -1)); pointer.current = null }} onPointerCancel={() => { pointer.current = null }}>
-            <motion.div key={currentCard.id} initial={{ x: direction * 18, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: .16, ease: 'easeOut' }} className="story-content">{renderedCard}</motion.div>
+            <motion.div key={currentCard.id} initial={reducedMotion ? false : { x: direction * 140, rotate: direction * 7, scale: .9, opacity: 0 }} animate={{ x: 0, rotate: 0, scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 26 }} className="story-content">{renderedCard}</motion.div>
           </div>
           <button className="tap-zone tap-zone--right" onClick={() => go(index + 1)} aria-label="Next card" />
           {help && <div className="swipe-hint"><span>Tap or swipe to explore</span></div>}
@@ -215,6 +244,6 @@ export function Story() {
     {customise && <><div className="drawer-backdrop" onClick={() => setCustomise(false)} /><Customiser onClose={() => setCustomise(false)} buy={(item) => { setCustomise(false); setCheckout(item) }} preview={<div className="customiser-preview-theme" style={style}>{renderedCard}</div>} /></>}
     {checkout && !appConfig.freeAccess && <Checkout purchase={checkout} onClose={() => { setCheckout(null) }} />}
     {shareable && <ShareSheet {...shareable} onShared={(target) => track('card_shared', { target, cardId: currentCard.id.slice(0,40) })} onClose={() => setShareable(null)} />}
-    {exportCard && <div className="export-deck" aria-hidden="true"><div className="export-frame" style={style} ref={exportRef}><CardRenderer still key={exportCard.id} {...viewProps(exportCard)} card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} /></div></div>}
+    {exportCard && <div className="export-deck" aria-hidden="true"><div className={exportClock === null ? 'export-frame' : 'export-frame export-frame--video'} style={style} ref={exportRef}><CardRenderer still={exportClock === null} clock={exportClock} key={exportCard.id} {...viewProps(exportCard)} card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} /></div></div>}
   </main>
 }

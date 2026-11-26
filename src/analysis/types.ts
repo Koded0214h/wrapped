@@ -34,6 +34,7 @@ export type LayoutType = 'bigNumber' | 'leaderboard' | 'versus' | 'quote' | 'tim
   | 'replyRace' | 'nightShift' | 'mediaDesk' | 'ghostWatch' | 'laughTrack' | 'conversationSpark'
   | 'groupPulse' | 'memoryVault' | 'movieFinale' | 'finalVerdict'
   | 'highlights' | 'split' | 'monthly' | 'hourly' | 'quietGap' | 'emojiBoard' | 'calls'
+  | 'signoff'
 
 export type FactContext = {
   rank?: number

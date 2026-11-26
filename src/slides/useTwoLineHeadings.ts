@@ -3,7 +3,9 @@ import { useLayoutEffect, type RefObject } from 'react'
 const MAX_LINES = 3
 const SMALLEST_PX = 18
 
-function shrink(heading: HTMLElement) {
+function fit(heading: HTMLElement) {
+  // Not laid out yet: a measurement now would shrink it for nothing.
+  if (!heading.isConnected || heading.offsetWidth < 120) return
   // The reduced-motion stylesheet gives everything a tiny transition, which would make each
   // measurement below read the size from before the change.
   heading.style.setProperty('transition', 'none', 'important')
@@ -19,13 +21,25 @@ function shrink(heading: HTMLElement) {
 /** Card headlines change with every chat, so any that would run past three lines is sized down. */
 export function useTwoLineHeadings(ref: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
-    const fit = () => { ref.current?.querySelectorAll<HTMLElement>('h2').forEach(shrink); if (ref.current) placeSticker(ref.current) }
-    fit()
+    const headings = [...ref.current?.querySelectorAll<HTMLElement>('h2') ?? []]
+    const fitAll = () => { headings.forEach(fit); if (ref.current) placeSticker(ref.current) }
+    fitAll()
     // Measured again when a display font arrives, because it changes the line breaks. The font is
     // only requested after the first paint, so `fonts.ready` can resolve too early on its own.
-    document.fonts?.addEventListener('loadingdone', fit)
-    void document.fonts?.ready.then(fit)
-    return () => document.fonts?.removeEventListener('loadingdone', fit)
+    document.fonts?.addEventListener('loadingdone', fitAll)
+    void document.fonts?.ready.then(fitAll)
+    // And whenever a headline's width changes, such as when the card first gets its size.
+    // Fitting changes only the height, so this cannot loop.
+    const widths = new WeakMap<Element, number>()
+    const watcher = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver((entries) => entries.forEach((entry) => {
+      const width = Math.round(entry.contentRect.width)
+      if (widths.get(entry.target) === width) return
+      widths.set(entry.target, width)
+      fit(entry.target as HTMLElement)
+      if (ref.current) placeSticker(ref.current)
+    }))
+    headings.forEach((heading) => watcher?.observe(heading))
+    return () => { document.fonts?.removeEventListener('loadingdone', fitAll); watcher?.disconnect() }
   })
 }
 
