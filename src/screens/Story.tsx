@@ -10,7 +10,7 @@ import { CardRenderer, type CardView } from '../slides/CardLayouts'
 import { clearWinner } from '../analysis/fairness'
 import type { Card } from '../analysis/types'
 import { ownsPurchase, useApp, type Purchase } from '../store/useApp'
-import { fonts } from '../themes/fonts'
+import { bodyStack, fonts } from '../themes/fonts'
 import { getTheme } from '../themes/themes'
 import { track, timing, trackError } from '../lib/telemetry'
 import { appConfig } from '../config/appConfig'
@@ -130,7 +130,7 @@ export function Story() {
     const timer = window.setTimeout(() => go(index === totalCards - 1 ? 0 : index + 1), 6000)
     return () => clearTimeout(timer)
   }, [autoAdvance, go, index, totalCards])
-  const style = useMemo(() => ({ ...currentTheme.variables, '--font-display': currentFont.stack, '--font-body': '"Manrope Variable", sans-serif' } as React.CSSProperties), [currentTheme, currentFont])
+  const style = useMemo(() => ({ ...currentTheme.variables, '--font-display': currentFont.stack, '--font-body': bodyStack } as React.CSSProperties), [currentTheme, currentFont])
   if (!analysis || !currentCard) return null
   if (analysis.schemaVersion !== ANALYSIS_SCHEMA_VERSION) return <main className="flow"><nav className="flow__nav"><Brand /></nav><div className="flow__body"><section className="processing-error"><span><Sparkles /></span><h1>This deck needs fresh facts.</h1><p>The card logic changed after this chat was analysed. Upload the same export once more so topic context, reply samples and laugh moments can be computed correctly.</p><Button onClick={() => { void clearAnalysis(); setStep('upload') }}>Upload the export again</Button></section></div></main>
   const watermark = !has('watermark')

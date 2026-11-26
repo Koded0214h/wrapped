@@ -1,6 +1,6 @@
 import { toPng } from 'html-to-image'
 
-const painted = ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'opacity'] as const
+const painted = ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'stop-color', 'stop-opacity', 'stroke-opacity', 'fill-opacity'] as const
 
 // html-to-image drops stylesheet rules for shapes inside an <svg>, which turns the characters
 // black in saved images. Writing the computed paint onto each shape carries it across.

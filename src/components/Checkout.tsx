@@ -40,7 +40,7 @@ export function Checkout({ purchase, onClose }: { purchase: Purchase; onClose: (
     try { const result = await recoverPurchase(reference); unlock(result.product); setRestored(result.product); setStatus('done'); track('recovery_succeeded') }
     catch (caught) { const message = caught instanceof Error ? caught.message : 'K-401: Payment not found.'; setError(message); setStatus('ready'); track('unlock_failed', { code: 'K-401' }) }
   }
-  const useFreeStyle = () => { setTheme('sunset'); setFont('bricolage'); setSavage(false); onClose() }
+  const useFreeStyle = () => { setTheme('sunset'); setFont('gluten'); setSavage(false); onClose() }
   const close = () => { if (status !== 'done') track('checkout_abandoned', { product: purchase }); onClose() }
 
   return <Modal title={status === 'done' ? 'You’re in!' : recovering ? 'Paid but still locked?' : 'Make it yours'} onClose={close}>

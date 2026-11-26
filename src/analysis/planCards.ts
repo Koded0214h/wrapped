@@ -9,26 +9,26 @@ type Category = 'people' | 'rhythm' | 'chaos' | 'language' | 'totals'
 type Presentation = { category: Category; headline: string; roast: string; savage: string }
 
 const presentation: Record<string, Presentation> = {
-  member_messages: { category: 'people', headline: '{{member:self}} types like there’s a deadline.', roast: '{{value:self}} messages. This thumb no dey rest.', savage: 'Even if the chat closes, {{member:self}} go still dey type.' },
-  message_share: { category: 'people', headline: '{{member:self}} sends the most, no contest.', roast: '{{value:self}}% of all messages came from this phone.', savage: 'Others dey try, but {{member:self}} does the main work.' },
-  fast_reply: { category: 'rhythm', headline: '{{member:self}} replies before the notification lands.', roast: '{{value:self}} minutes on average. Nobody waits long.', savage: '{{member:self}} answers notifications like it’s attendance.' },
-  slow_reply: { category: 'rhythm', headline: '{{member:self}} takes the long route to reply.', roast: '{{value:self}} minutes on average. By then the gist don cold.', savage: 'By the time {{member:self}} replies, the topic don change.' },
-  longest_silence: { category: 'chaos', headline: '{{member:self}} disappeared without notice.', roast: '{{value:self}} hours of nothing, then came back like normal.', savage: 'That wasn’t a break. That was a disappearance.' },
-  conversation_starts: { category: 'people', headline: '{{member:self}} dey wake this chat up.', roast: 'This person started fresh gist {{value:self}} times.', savage: 'Without {{member:self}}, plenty gist for no even start.' },
-  laugh_count: { category: 'people', headline: '{{member:self}} laughs at everybody’s jokes.', roast: '{{value:self}} laughs. Even the weak jokes got support.', savage: 'Any joke at all, {{member:self}} is ready to laugh.' },
-  hard_to_impress: { category: 'people', headline: 'Making {{member:self}} laugh is not easy.', roast: 'Only {{value:self}} laughs passed the test.', savage: '{{member:self}} inspects every joke before laughing.' },
-  sorry_count: { category: 'people', headline: '{{member:self}} says “sorry” a lot.', roast: '{{value:self}} times. Apology plenty here sha.', savage: 'Sorry never finishes. Another one is loading.' },
-  night_activity: { category: 'chaos', headline: 'When others sleep, {{member:self}} dey type.', roast: '{{value:self}} messages after midnight. Sleep lost this one.', savage: '{{member:self}} and bedtime no be friends.' },
-  night_share: { category: 'chaos', headline: '{{member:self}} saves gist for midnight.', roast: '{{value:self}}% of their messages came after midnight.', savage: 'Daytime is for rest. Midnight is for typing.' },
-  media_dropper: { category: 'people', headline: '{{member:self}} drops the most media.', roast: 'The export shows {{value:self}} media messages left out.', savage: 'The files didn’t follow, but the count still exposed {{member:self}}.' },
-  daily_presence: { category: 'rhythm', headline: '{{member:self}} never misses roll call.', roast: '{{value:self}} messages on every active day.', savage: 'No leave, no quiet week. Just steady typing.' },
-  starter_share: { category: 'people', headline: '{{member:self}} dey revive dead chats.', roast: '{{value:self}}% of fresh gist started here.', savage: 'Everybody waits, then {{member:self}} presses start.' },
-  laugh_rate: { category: 'people', headline: '{{member:self}} laughs at almost everything.', roast: '{{value:self}} laughs in every hundred messages.', savage: 'Even dry jokes still collect a laugh.' },
-  media_rate: { category: 'people', headline: '{{member:self}} would rather send than type.', roast: '{{value:self}} media drops in every hundred messages.', savage: 'Typing is the backup plan for this phone.' },
-  repeated_phrase: { category: 'language', headline: 'You can’t stop saying “{{detail:self}}”.', roast: '{{value:self}} times. You really like this one.', savage: '“{{detail:self}}” entered the chat and never left.' },
-  busiest_day: { category: 'chaos', headline: '{{detail:self}} was a serious typing day.', roast: '{{value:self}} messages. Everybody suddenly had time.', savage: 'Every other plan that day suffered.' },
-  total_words: { category: 'totals', headline: '{{value:self}} words entered this chat.', roast: 'You typed a whole book, no chapters.', savage: 'All that typing and someone still needs a reminder.' },
-  emoji_count: { category: 'totals', headline: '{{value:self}} emojis helped you talk.', roast: 'Sometimes one face says it better.', savage: 'The keyboard has letters, but you chose faces.' },
+  member_messages: { category: 'people', headline: '{{member:self}} types like there’s a deadline.', roast: '{{value:self}} messages. Those thumbs dey work overtime.', savage: 'Even if the chat closes, {{member:self}} go still dey type.' },
+  message_share: { category: 'people', headline: '{{member:self}} keeps this chat running.', roast: '{{value:self}}% of all messages. The chat no fit run without them.', savage: 'Others dey try, but {{member:self}} does the main work.' },
+  fast_reply: { category: 'rhythm', headline: '{{member:self}} replies before the notification lands.', roast: '{{value:self}} minutes on average. Nobody dey wait long here.', savage: '{{member:self}} answers notifications like it’s attendance.' },
+  slow_reply: { category: 'rhythm', headline: '{{member:self}} takes the scenic route to reply.', roast: '{{value:self}} minutes on average. The reply always dey come, sha.', savage: 'By the time {{member:self}} replies, the topic don change.' },
+  longest_silence: { category: 'chaos', headline: '{{member:self}} took a little break.', roast: '{{value:self}} hours offline, then back like nothing happen. We no mind.', savage: 'That wasn’t a break. That was a disappearance.' },
+  conversation_starts: { category: 'people', headline: '{{member:self}} dey wake this chat up.', roast: 'Started fresh gist {{value:self}} times. The chat’s own alarm clock.', savage: 'Without {{member:self}}, plenty gist for no even start.' },
+  laugh_count: { category: 'people', headline: '{{member:self}} is everybody’s best audience.', roast: '{{value:self}} laughs. Every joke dey get support here.', savage: 'Any joke at all, {{member:self}} is ready to laugh.' },
+  hard_to_impress: { category: 'people', headline: 'Making {{member:self}} laugh is an achievement.', roast: 'Only {{value:self}} laughs. If you got one, you don win.', savage: '{{member:self}} inspects every joke before laughing.' },
+  sorry_count: { category: 'people', headline: '{{member:self}} says “sorry” the most.', roast: '{{value:self}} times. The peacemaker of this chat, no be lie.', savage: 'Sorry never finishes. Another one is loading.' },
+  night_activity: { category: 'chaos', headline: 'When others sleep, {{member:self}} dey type.', roast: '{{value:self}} messages after midnight. The night shift dey open.', savage: '{{member:self}} and bedtime no be friends.' },
+  night_share: { category: 'chaos', headline: '{{member:self}} saves the gist for midnight.', roast: '{{value:self}}% of their messages came after midnight. Night owl wey sabi type.', savage: 'Daytime is for rest. Midnight is for typing.' },
+  media_dropper: { category: 'people', headline: '{{member:self}} drops the most media.', roast: '{{value:self}} media drops. Why type when you fit just send am?', savage: 'The files didn’t follow, but the count still exposed {{member:self}}.' },
+  daily_presence: { category: 'rhythm', headline: '{{member:self}} never misses roll call.', roast: '{{value:self}} messages on every active day. Present, no matter what.', savage: 'No leave, no quiet week. Just steady typing.' },
+  starter_share: { category: 'people', headline: '{{member:self}} dey revive quiet chats.', roast: '{{value:self}}% of fresh gist started here.', savage: 'Everybody waits, then {{member:self}} presses start.' },
+  laugh_rate: { category: 'people', headline: '{{member:self}} laughs at almost everything.', roast: '{{value:self}} laughs in every hundred messages. Joy dey here.', savage: 'Even dry jokes still collect a laugh.' },
+  media_rate: { category: 'people', headline: '{{member:self}} would rather show than tell.', roast: '{{value:self}} media drops in every hundred messages. Typing no be first choice.', savage: 'Typing is the backup plan for this phone.' },
+  repeated_phrase: { category: 'language', headline: 'You can’t stop saying “{{detail:self}}”.', roast: '{{value:self}} times. E don become your signature.', savage: '“{{detail:self}}” entered the chat and never left.' },
+  busiest_day: { category: 'chaos', headline: '{{detail:self}} was a big gist day.', roast: '{{value:self}} messages. Everybody show up for that one.', savage: 'Every other plan that day suffered.' },
+  total_words: { category: 'totals', headline: '{{value:self}} words entered this chat.', roast: 'That na a whole novel, written one message at a time.', savage: 'All that typing and someone still needs a reminder.' },
+  emoji_count: { category: 'totals', headline: '{{value:self}} emojis helped you talk.', roast: 'Sometimes one small face dey talk am better.', savage: 'The keyboard has letters, but you chose faces.' },
   verdict: { category: 'totals', headline: '{{value:self}}', roast: '{{detail:self}}', savage: '{{detail:self}}' }
 }
 
@@ -140,7 +140,7 @@ export function planCards(facts: Fact[], options: { maxCards?: number; chatType?
     layout: 'cover',
     factIds: ['chat_label', 'date_range', 'total_messages', ...(thin ? ['thin_stats'] : [])],
     headline: '{{value:chat_label}}',
-    roast: thin ? 'Short export, so only the clear patterns made it.' : 'This chat get pattern. We only counted what’s in the export.',
+    roast: thin ? 'Short export, so only the clear patterns made it.' : 'This chat get story. Every number here came from your export.',
     locked: false
   }
   const storyCards = sequence.map((candidate, index) => ({ ...cardFromCandidate(candidate), locked: index > 1 }))
@@ -159,8 +159,8 @@ function plotTwistCopy(fact?: Fact) {
   if (!fact) return { headline: 'The group gets busiest when normal people are sleeping.', roast: 'The timestamps made the allegation. We only arranged the slide.' }
   const copy: Record<string, [string, string]> = {
     night_share: ['{{member:self}} saves {{value:self}}% of their messages for after midnight.', 'The group has a night shift. Nobody submitted an application.'],
-    night_activity: ['{{member:self}} sent {{value:self}} messages after midnight.', 'Apparently sleep was only a suggestion.'],
-    starter_share: ['{{member:self}} starts {{value:self}}% of the fresh conversations.', 'Take this person away and the chat may need jumper cables.'],
+    night_activity: ['{{member:self}} sent {{value:self}} messages after midnight.', 'The moon had company most nights.'],
+    starter_share: ['{{member:self}} starts {{value:self}}% of the fresh conversations.', 'Every quiet moment, they hit the start button.'],
     media_rate: ['{{member:self}} sends {{value:self}} media drops per hundred messages.', 'Typing is clearly the backup plan.'],
     avg_message_words: ['{{member:self}} averages {{value:self}} words every time they press send.', 'Not a message. A keynote address.'],
     replies_received: ['{{member:self}} pulled {{value:self}} replies from everybody else.', 'Not the loudest person. Still somehow the gravitational centre.'],
@@ -179,10 +179,10 @@ export function planGroupCards(facts: Fact[]): Card[] {
     .sort((a, b) => (b.context?.magnitude === 'wild' ? 18 : b.context?.magnitude === 'clear' ? 8 : 0) + b.surpriseScore - ((a.context?.magnitude === 'wild' ? 18 : a.context?.magnitude === 'clear' ? 8 : 0) + a.surpriseScore))[0]
   const plotCopy = plotTwistCopy(plot)
   const cards: Card[] = [
-    { id: 'group_01_numbers', layout: 'groupNumbers', factIds: ['chat_label', 'date_range', 'total_messages', 'total_members', 'total_words', 'media_count', 'avg_messages_day'].filter((id) => facts.some((fact) => fact.id === id)), headline: 'You people sent {{value:total_messages}} messages. Please seek help.', roast: 'A completely normal amount of communication, if nobody asks questions.', locked: false },
+    { id: 'group_01_numbers', layout: 'groupNumbers', factIds: ['chat_label', 'date_range', 'total_messages', 'total_members', 'total_words', 'media_count', 'avg_messages_day'].filter((id) => facts.some((fact) => fact.id === id)), headline: 'You sent {{value:total_messages}} messages. Una no dey tire!', roast: 'Every one of them counted. Proudly a group that talks.', locked: false },
     { id: 'group_02_yap', layout: 'yapLeaderboard', factIds: ids(factsOf(facts, ['member_messages', 'member_words', 'avg_message_words'])), headline: 'The Yap Leaderboard', roast: 'Message count is volume. Word count is commitment. We checked both.', locked: false },
     { id: 'group_03_characters', layout: 'characterCast', factIds: ids(memberEvidence.filter((fact) => ['member_messages', 'fast_reply', 'night_activity', 'media_dropper', 'conversation_starts', 'voice_notes', 'avg_message_words'].includes(fact.kind))), headline: 'Everyone has a character', roast: 'Behaviour became casting. Nobody auditioned.', locked: false },
-    { id: 'group_04_awards', layout: 'groupAwards', factIds: ids([top('longest_silence'), top('slow_reply'), top('conversation_starts'), top('long_explanations'), top('avg_message_words')].filter(Boolean) as Fact[]), headline: 'The Group Chat Awards', roast: 'The nominations came from the data. The final mess belongs to the voters.', locked: true },
+    { id: 'group_04_awards', layout: 'groupAwards', factIds: ids([top('longest_silence'), top('slow_reply'), top('conversation_starts'), top('long_explanations'), top('avg_message_words')].filter(Boolean) as Fact[]), headline: 'The Group Chat Awards', roast: 'The nominations came from the data. The votes are all yours.', locked: true },
     { id: 'group_05_social', layout: 'socialGraph', factIds: ids([top('conversation_starts'), top('replies_received'), top('conversation_continuations'), top('member_messages')].filter(Boolean) as Fact[]), headline: 'Who runs this group?', roast: 'Sending the most is one thing. Keeping everybody connected is another.', locked: true },
     { id: 'group_06_twist', layout: 'plotTwist', factIds: plot ? [plot.id] : ['busiest_day'].filter((id) => facts.some((fact) => fact.id === id)), headline: plotCopy.headline, roast: plotCopy.roast, locked: true },
     { id: 'group_07_language', layout: 'groupLanguage', factIds: ids(factsOf(facts, ['top_emoji', 'repeated_phrase', 'emoji_count'], 12)), headline: "The group's language", roast: 'Raw usage only. Common filler words and names are left out.', locked: true },
@@ -198,7 +198,7 @@ export function planGroupCards(facts: Fact[]): Card[] {
     { id: 'group_17_pulse', layout: 'groupPulse', factIds: ['busiest_day', 'avg_messages_day', 'active_days', 'total_messages'].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The group pulse', roast: 'Mostly alive. Occasionally operating at emergency-broadcast levels.', locked: true },
     { id: 'group_18_memory', layout: 'memoryVault', factIds: ['busiest_day', 'longest_conversation', 'media_peak', ...ids(factsOf(facts, ['repeated_phrase', 'top_emoji'], 10))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The memory vault', roast: 'The defining topics, recurring jokes, important milestones, longest conversations and moments worth remembering.', locked: true },
     { id: 'group_19_movie', layout: 'movieFinale', factIds: ['chat_label', 'total_messages', 'total_members', 'verdict', 'busiest_day_topic', 'longest_conversation_topic', top('member_messages')?.id, ...ids(factsOf(facts, ['repeated_phrase'], 3))].filter((id): id is string => Boolean(id) && facts.some((fact) => fact.id === id)), headline: 'Our group chat: the movie', roast: '{{value:total_members}} people and {{value:total_messages}} messages built this story.', locked: true },
-    { id: 'group_20_verdict', layout: 'finalVerdict', factIds: ['chat_label', 'total_messages', 'total_members', 'avg_messages_day', 'verdict', ...ids(factsOf(facts, ['repeated_phrase'], 1))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The final verdict', roast: 'A collection of individuals who should probably not be left unsupervised, but somehow make life considerably more entertaining.', locked: true }
+    { id: 'group_20_verdict', layout: 'finalVerdict', factIds: ['chat_label', 'total_messages', 'total_members', 'avg_messages_day', 'verdict', ...ids(factsOf(facts, ['repeated_phrase'], 1))].filter((id) => facts.some((fact) => fact.id === id)), headline: 'The final verdict', roast: 'Different people, different hours, one group that keeps showing up for each other.', locked: true }
   ]
   return cards
 }

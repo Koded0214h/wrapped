@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { CardRenderer } from '../slides/CardLayouts'
 import { getTheme, type ThemeId } from '../themes/themes'
 import type { AnalysisResult } from '../analysis/types'
+import { bodyStack, displayStack } from '../themes/fonts'
 
 export type Sample = { analysis: AnalysisResult; layout: string; theme?: ThemeId }
 
@@ -17,7 +18,7 @@ export function RealCard({ sample, still }: { sample: Sample; still?: boolean })
     return () => observer.disconnect()
   }, [])
   const card = sample.analysis.cards.find((item) => item.layout === sample.layout)
-  const style = { ...getTheme(sample.theme ?? 'sunset').variables, '--font-display': '"Bricolage Grotesque Variable", sans-serif', '--font-body': '"Manrope Variable", sans-serif' } as CSSProperties
+  const style = { ...getTheme(sample.theme ?? 'sunset').variables, '--font-display': displayStack, '--font-body': bodyStack } as CSSProperties
   // The card's own buttons are not usable here, so it is inert and hidden from assistive technology.
   return <div className="real-card" ref={frame} aria-hidden="true" inert>
     {card && <div className="real-card__canvas" style={{ ...style, transform: `scale(${scale})` }}><CardRenderer still={still} card={card} facts={sample.analysis.facts} members={sample.analysis.members} savage={false} hideNames={false} watermark /></div>}

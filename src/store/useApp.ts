@@ -42,7 +42,7 @@ export const useApp = create<AppState>()(persist((set) => ({
   analysis: null,
   owned: [],
   theme: 'sunset',
-  font: 'bricolage',
+  font: 'gluten',
   savage: false,
   hideNames: false,
   autoAdvance: false,
@@ -55,7 +55,10 @@ export const useApp = create<AppState>()(persist((set) => ({
   setSavage: (savage) => set({ savage }),
   setHideNames: (hideNames) => set({ hideNames }),
   setAutoAdvance: (autoAdvance) => set({ autoAdvance }),
-  reset: () => set({ step: 'landing', analysis: null, owned: [], theme: 'sunset', font: 'bricolage', savage: false, hideNames: false })
-}), { name: 'chat-wrapped-v0', partialize: ({ step, chatType, owned, theme, font, savage, hideNames }) => ({
+  reset: () => set({ step: 'landing', analysis: null, owned: [], theme: 'sunset', font: 'gluten', savage: false, hideNames: false })
+}), { name: 'chat-wrapped-v0', version: 1,
+  // Version 1 made Gluten the free display face; Bricolage, the old default, became an extra.
+  migrate: (saved, version) => { const state = saved as { font?: FontId }; if (version < 1 && state.font === 'bricolage') state.font = 'gluten'; return state as never },
+  partialize: ({ step, chatType, owned, theme, font, savage, hideNames }) => ({
   // The chosen file lives only in memory, so a reload mid-upload must restart at the picker.
   step: step === 'processing' || step === 'ai-consent' ? 'upload' as const : step, chatType, owned, theme, font, savage, hideNames }) }))

@@ -8,14 +8,14 @@ export type StoryTheme = {
   variables: Record<string, string>
 }
 
-// Every theme is light and flat, so the cards and the app agree.
+// Every theme is light: a soft two-tone gradient with one warm and one strong accent.
 export const themes: StoryTheme[] = [
-  { id: 'sunset', name: 'Sunset Pop', vibe: 'Sweet heat', free: true, variables: { '--bg-from': '#fff1e8', '--bg-to': '#fff1e8', '--surface': '#ffffff', '--text': '#201411', '--muted': '#6e5146', '--accent': '#ffd84d', '--accent-2': '#e8502d' } },
-  { id: 'lagos', name: 'Lagos Lime', vibe: 'Fresh out', free: false, variables: { '--bg-from': '#f2f8e4', '--bg-to': '#f2f8e4', '--surface': '#ffffff', '--text': '#18220f', '--muted': '#4f5f41', '--accent': '#cdee5a', '--accent-2': '#2f7d4f' } },
-  { id: 'detty', name: 'Detty Gold', vibe: 'Big energy', free: false, variables: { '--bg-from': '#fff5d6', '--bg-to': '#fff5d6', '--surface': '#ffffff', '--text': '#2a1f08', '--muted': '#6f5a2a', '--accent': '#ffcf3f', '--accent-2': '#1f6f54' } },
-  { id: 'bubblegum', name: 'Bubblegum', vibe: 'Soft chaos', free: false, variables: { '--bg-from': '#ffeaf3', '--bg-to': '#ffeaf3', '--surface': '#ffffff', '--text': '#352342', '--muted': '#735b7b', '--accent': '#ffe27a', '--accent-2': '#c93d77' } },
-  { id: 'midnight', name: 'Sky Blue', vibe: 'Low-key loud', free: false, variables: { '--bg-from': '#e9f1ff', '--bg-to': '#e9f1ff', '--surface': '#ffffff', '--text': '#14213d', '--muted': '#4a5878', '--accent': '#ffd84d', '--accent-2': '#2f5fd0' } },
-  { id: 'mint', name: 'Mint Fresh', vibe: 'Clean gist', free: false, variables: { '--bg-from': '#e6f7ee', '--bg-to': '#e6f7ee', '--surface': '#ffffff', '--text': '#12372c', '--muted': '#4c6f62', '--accent': '#ffd36b', '--accent-2': '#c9512f' } }
+  { id: 'sunset', name: 'Sunset Pop', vibe: 'Sweet heat', free: true, variables: { '--bg-from': '#fff4e8', '--bg-to': '#ffd8c4', '--surface': '#fffdf8', '--text': '#2a1611', '--muted': '#76503f', '--accent': '#ffd23f', '--accent-2': '#f2552f' } },
+  { id: 'lagos', name: 'Lagos Lime', vibe: 'Fresh out', free: false, variables: { '--bg-from': '#f6fce6', '--bg-to': '#d8f1ae', '--surface': '#fffff7', '--text': '#16240e', '--muted': '#4c603c', '--accent': '#c6f04d', '--accent-2': '#1f8a50' } },
+  { id: 'detty', name: 'Detty Gold', vibe: 'Big energy', free: false, variables: { '--bg-from': '#fff8de', '--bg-to': '#ffe08f', '--surface': '#fffdf5', '--text': '#2b1e05', '--muted': '#6d5626', '--accent': '#ffc928', '--accent-2': '#1f6f54' } },
+  { id: 'bubblegum', name: 'Bubblegum', vibe: 'Soft chaos', free: false, variables: { '--bg-from': '#fff1f8', '--bg-to': '#ffcfe4', '--surface': '#fffcfe', '--text': '#3a1f48', '--muted': '#71557a', '--accent': '#ffe36e', '--accent-2': '#d8337a' } },
+  { id: 'midnight', name: 'Sky Blue', vibe: 'Low-key loud', free: false, variables: { '--bg-from': '#eef5ff', '--bg-to': '#cbdcff', '--surface': '#fdfeff', '--text': '#13203f', '--muted': '#46557a', '--accent': '#ffd84d', '--accent-2': '#3360dd' } },
+  { id: 'mint', name: 'Mint Fresh', vibe: 'Clean gist', free: false, variables: { '--bg-from': '#ecfbf3', '--bg-to': '#c2eed6', '--surface': '#fcfffd', '--text': '#0f382b', '--muted': '#46695c', '--accent': '#ffd36b', '--accent-2': '#d9572f' } }
 ]
 
 export const getTheme = (id: ThemeId) => themes.find((theme) => theme.id === id) ?? themes[0]
