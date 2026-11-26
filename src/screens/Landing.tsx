@@ -18,8 +18,8 @@ export function Landing({ openPrivacy }: { openPrivacy: () => void }) {
         <h1>Your group chat, exposed.</h1>
         <p>Drop your WhatsApp export. Get a one-of-one deck about who carries the gist, who ghosts, and who is awake at 3am.</p>
         <Button onClick={begin}>Get yours in 30 seconds <ArrowUpRight size={20} /></Button>
-        <button className="sample-link" onClick={() => setStep('choose')}>or try it with a sample chat</button>
-        <div className="trust"><LockKeyhole size={17} /><span><strong>{privacyCopy.short}</strong><br />Raw messages are discarded after facts are computed.</span></div>
+        <button className="sample-link" onClick={() => setStep('upload')}>or try it with a sample chat</button>
+        <div className="trust"><LockKeyhole size={17} /><span><strong>{privacyCopy.short}</strong><br />Full message text is not saved after facts are computed.</span></div>
       </div>
       <div className="hero__deck" aria-label="Sample Chat Wrapped card">
         <div className="deck-shadow deck-shadow--one" />

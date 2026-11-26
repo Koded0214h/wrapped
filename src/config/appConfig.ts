@@ -1,9 +1,9 @@
 export type AiMode = 'facts-only' | 'with-quotes'
 export type PrivacyCopyMode = 'local-only' | 'ai-facts' | 'ai-quotes'
-export type PaymentMode = 'free' | 'mock' | 'paystack'
+export type PaymentMode = 'free' | 'mock' | 'bachs'
 
 const privacy = __PRIVACY_COPY_MODE__ as PrivacyCopyMode
-const paymentMode = (['free', 'mock', 'paystack'] as const).includes(import.meta.env.VITE_PAYMENT_MODE as PaymentMode)
+const paymentMode = (['free', 'mock', 'bachs'] as const).includes(import.meta.env.VITE_PAYMENT_MODE as PaymentMode)
   ? import.meta.env.VITE_PAYMENT_MODE as PaymentMode
   : 'mock'
 
@@ -19,6 +19,5 @@ export const appConfig = {
 
 export const privacyCopy = {
   short: privacy === 'local-only' ? 'Your chat never leaves your phone.' : privacy === 'ai-quotes' ? 'Selected excerpts may be sent only after you opt in.' : 'Message text stays on your phone. Only computed facts may be sent for card planning.',
-  processing: privacy === 'local-only' ? 'Everything is happening on this device.' : privacy === 'ai-quotes' ? 'Parsing stays here. Quote sharing requires your permission.' : 'Parsing stays here. Card planning can use computed facts only.',
-  paywall: privacy === 'local-only' ? 'Processed entirely on your phone.' : 'No raw message text is sent for card planning.'
+  processing: privacy === 'local-only' ? 'Everything is happening on this device.' : privacy === 'ai-quotes' ? 'Parsing stays here. Quote sharing requires your permission.' : 'Parsing stays here. Card planning can use computed facts only.'
 }

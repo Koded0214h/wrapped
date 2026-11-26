@@ -14,7 +14,9 @@ Failure fixtures:
 - ZIP with no TXT → `P-104`
 - Unrecognised/short export → `P-102`
 - Parse beyond 60 seconds → `P-108`
-- More than 60,000 messages → most recent 60,000 and a visible notice
+- More than 60,000 messages → every message is analysed; parsing stays under the 60-second limit
+- Premium theme selected → download asks for payment; "use the free style" downloads at no charge
+- Bachs bank transfer completed after leaving the page → unlock appears on next visit
 - Webhook sent twice → one unlock and `duplicate_ignored`
 - Webhook disabled after payment → recovery restores unlock; reconciliation initially flags it
 - Low `CAP_NGN` → configured threshold alert appears in `/admin`

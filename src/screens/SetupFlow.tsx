@@ -9,9 +9,9 @@ import { clearPendingInput, getPendingInput, setPendingAiMode, setPendingFile, s
 import { appConfig, privacyCopy } from '../config/appConfig'
 import { timing, track, trackError } from '../lib/telemetry'
 import type { ParserDiagnostics } from '../analysis/parseExport'
-import { loadAnalysis } from '../analysis/analysisCache'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
 import type { AnalysisResult } from '../analysis/types'
+import { isPendingContext } from '../analysis/fairness'
 
 function Shell({ children, back }: { children: React.ReactNode; back?: () => void }) {
   return <main className="flow"><nav className="flow__nav">{back ? <button className="back-link" onClick={back}><ArrowLeft size={18} /> Back</button> : <Brand />}</nav><div className="flow__body">{children}</div></main>
@@ -63,18 +63,18 @@ export function Upload() {
 
 export function AiConsent() {
   const setStep = useApp((s)=>s.setStep); const [agreed,setAgreed]=useState(false)
-  return <Shell back={()=>setStep('upload')}><section className="consent"><h1>Let AI read the full chat?</h1><p>Chat Wrapped can send the readable message text from this export to AI. Before anything leaves your phone, WhatsApp names become labels like “Person A”, while phone numbers, emails and links are removed. This produces much more specific cards.</p><label><input type="checkbox" checked={agreed} onChange={(e)=>setAgreed(e.target.checked)} /><span><strong>I’m okay with the anonymised chat being sent</strong><small>The chat is split into parts, analysed, then discarded after this deck is written.</small></span></label><Button wide disabled={!agreed} onClick={()=>{ setPendingAiMode('with-quotes'); setStep('processing') }}>Read the full chat with AI</Button><button onClick={()=>{ setPendingAiMode('facts-only'); setStep('processing') }}>Use counts only; send no messages</button></section></Shell>
+  return <Shell back={()=>setStep('upload')}><section className="consent"><h1>Let AI read the full chat?</h1><p>Chat Wrapped can send the readable message text from this export to AI. Before anything leaves your phone, sender names become labels like “Person A”, while phone numbers, emails and links are removed. Nicknames, and people who never sent a message here, can still appear. This produces much more specific cards.</p><label><input type="checkbox" checked={agreed} onChange={(e)=>setAgreed(e.target.checked)} /><span><strong>I’m okay with the anonymised chat being sent</strong><small>The chat is split into parts, analysed, then discarded after this deck is written. Very long chats are sampled across the whole period.</small></span></label><Button wide disabled={!agreed} onClick={()=>{ setPendingAiMode('with-quotes'); setStep('processing') }}>Read the full chat with AI</Button><button onClick={()=>{ setPendingAiMode('facts-only'); setStep('processing') }}>Use counts only; send no messages</button></section></Shell>
 }
 
 const teasers = ['Reading timestamps and senders…', 'Computing reply times locally…', 'Ranking the surprising facts…', 'Planning a different card deck…']
 function safeFallbackDeck(analysis: AnalysisResult): AnalysisResult {
-  const incompleteIds = new Set(analysis.facts.filter((fact) => fact.kind === 'topic_context' && String(fact.value).includes('needs the AI context pass')).map((fact) => fact.id))
+  const incompleteIds = new Set(analysis.facts.filter((fact) => fact.kind === 'topic_context' && isPendingContext(fact.value)).map((fact) => fact.id))
   return {
     ...analysis,
     aiAttempted: true,
     aiChunks: undefined,
     facts: analysis.facts.filter((fact) => !incompleteIds.has(fact.id)).map((fact) => { const { sourceExcerpt: _sourceExcerpt, ...safeFact } = fact; return safeFact }),
-    cards: analysis.cards.filter((card) => card.layout !== 'timeCapsule' && !card.factIds.some((id) => incompleteIds.has(id)))
+    cards: analysis.cards.map((card) => ({ ...card, factIds: card.factIds.filter((id) => !incompleteIds.has(id)) }))
   }
 }
 export function Processing() {
@@ -82,11 +82,13 @@ export function Processing() {
   useEffect(() => {
     const controller = new AbortController(); abort.current = controller; const started=performance.now(); const input=getPendingInput(); let diagnostics: ParserDiagnostics | undefined; const teaserTimer=window.setInterval(()=>setTeaser((i)=>(i+1)%teasers.length),850)
     if (!input.file && !input.mock) {
+      // After a successful run the input is cleared and the new analysis is already set.
+      // Never fall back to a saved one here: it could be a different chat.
       if (analysis) setStep('story')
-      else void loadAnalysis().then((saved) => { if (saved) { setAnalysis(saved); setStep('story') } else setError('U-202 · The upload session expired. Please choose the export again.') })
+      else setError('U-202 · The upload session expired. Please choose the export again.')
       return ()=>{ clearInterval(teaserTimer); controller.abort() }
     }
-    getAnalysis(chatType,{...input,signal:controller.signal,onProgress:setProgress,onDiagnostics:(value)=>{diagnostics=value}}).then(async(data)=>{ const parseMs=Math.round(performance.now()-started); const completed={...data,aiMode:input.aiMode}; timing('upload_to_parse',parseMs); track('parse_completed',{messageCount:data.totals.messages,memberCount:data.members.length,cards:data.cards.length,parseMs,fileKb:input.file?Math.round(input.file.size/1024):0,format:diagnostics?.format??'mock',clock:diagnostics?.clock??'mock',dateOrder:diagnostics?.dateOrder??'mock',unknownPct:diagnostics?.unknownPct??0,languageHint:diagnostics?.languageHint??'mock'});let planned:AnalysisResult=completed;if(appConfig.aiPlanner){setProgress({percent:98,processed:data.totals.messages,total:data.totals.messages,label:input.aiMode==='with-quotes'?'AI is reading the full chat in parts':'AI is planning the story from the counts'});try{planned=await planAnalysisWithAi(completed,{signal:controller.signal})}catch(reason){if(reason instanceof DOMException&&reason.name==='AbortError')throw reason;trackError(reason,{step:'ai-plan-processing'});planned=safeFallbackDeck(completed)}}clearPendingInput();setAnalysis(planned);setProgress({percent:100,processed:data.totals.messages,total:data.totals.messages,label:'Story ready'});window.setTimeout(()=>setStep('story'),150) }).catch((reason)=>{ if (reason?.name==='AbortError') return; const message=reason instanceof Error?reason.message:'P-100 · This export could not be read.'; setError(message); trackError(reason,{step:'processing'}); track('parse_failed',{code:message.match(/[A-Z]-\d{3}/)?.[0]??'P-100'}) })
+    getAnalysis(chatType,{...input,signal:controller.signal,onProgress:setProgress,onDiagnostics:(value)=>{diagnostics=value}}).then(async(data)=>{ const parseMs=Math.round(performance.now()-started); if(controller.signal.aborted)return;const completed={...data,aiMode:input.aiMode}; timing('upload_to_parse',parseMs); track('parse_completed',{messageCount:data.totals.messages,memberCount:data.members.length,cards:data.cards.length,parseMs,fileKb:input.file?Math.round(input.file.size/1024):0,format:diagnostics?.format??'mock',clock:diagnostics?.clock??'mock',dateOrder:diagnostics?.dateOrder??'mock',unknownPct:diagnostics?.unknownPct??0,languageHint:diagnostics?.languageHint??'mock'});let planned:AnalysisResult=completed;if(appConfig.aiPlanner){setProgress({percent:98,processed:data.totals.messages,total:data.totals.messages,label:input.aiMode==='with-quotes'?'AI is reading the full chat in parts':'AI is planning the story from the counts'});try{planned=await planAnalysisWithAi(completed,{signal:controller.signal})}catch(reason){if(reason instanceof DOMException&&reason.name==='AbortError')throw reason;trackError(reason,{step:'ai-plan-processing'});planned=safeFallbackDeck(completed)}}clearPendingInput();setAnalysis(planned);setProgress({percent:100,processed:data.totals.messages,total:data.totals.messages,label:'Story ready'});window.setTimeout(()=>setStep('story'),150) }).catch((reason)=>{ if (reason?.name==='AbortError') return; const message=reason instanceof Error?reason.message:'P-100 · This export could not be read.'; setError(message); trackError(reason,{step:'processing'}); track('parse_failed',{code:message.match(/[A-Z]-\d{3}/)?.[0]??'P-100'}) })
     return ()=>{ clearInterval(teaserTimer); controller.abort() }
   }, [analysis,chatType,setAnalysis,setStep])
   if(error) return <Shell><section className="processing-error"><span><X /></span><h1>We couldn’t read this export.</h1><p>{error}</p><Button onClick={()=>setStep('upload')}>Choose another file</Button><small>Send support only the code above and your session ID—never the chat file.</small></section></Shell>

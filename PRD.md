@@ -1,5 +1,7 @@
 # Chat Wrapped — Product Requirements
 
+> **Changed since this was written:** the full story and its downloads are now free. Only customisation (themes, fonts, Savage mode, watermark removal, bonus cards) is paid, through Bachs rather than Paystack. Where this document says otherwise, [README.md](./README.md) is current.
+
 Status: working v0 · target: $1,000 revenue by 31 December 2026
 
 ## Product

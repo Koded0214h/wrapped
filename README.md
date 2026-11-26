@@ -22,11 +22,22 @@ Set the mode, then restart the app:
 VITE_PAYMENT_MODE=free
 ```
 
-- `free`: the complete story, facts-only AI planning, customisation and exports are open; checkout is disabled. Shared cards retain the product-link watermark.
-- `mock`: the checkout flow uses local server-recorded transactions and charges no money.
-- `paystack`: real checkout is enabled and `PAYSTACK_SECRET_KEY` is required.
+The story and its downloads are free in every mode. Payment applies only to customisation.
 
-Free access is not stored as a purchase, so switching a deployment from `free` to `paystack` restores the normal paywall for users who have not paid.
+- `free`: customisation is open too; checkout is disabled. Shared cards keep the product-link watermark.
+- `mock`: premium themes, fonts, Savage mode, watermark removal and bonus cards go through a pretend checkout. Never deploy this mode: it unlocks without charging.
+- `bachs`: the same items are paid on Bachs' hosted checkout.
+
+Any other value stops the server at startup.
+
+## Bachs setup
+
+1. Set `VITE_PAYMENT_MODE=bachs`, `BACHS_SECRET_KEY` and `PAYMENT_RETURN_URL` in `.env`.
+2. In the Bachs dashboard add a webhook endpoint at `https://<your domain>/api/payments/webhook` for `checkout.completed` and `collection.succeeded`, and put its signing secret in `BACHS_WEBHOOK_SECRET`.
+3. Run `npm run build` again (the mode is baked into the client), then restart the server.
+4. Try one purchase with an `sk_sandbox_` key before switching to the live key.
+
+Prices are set in `server/index.mjs` (what is charged) and `src/config/products.ts` (what is shown). Keep them the same.
 
 The admin dashboard is at `http://127.0.0.1:8787/admin?key=<ADMIN_SECRET>`. Set a non-empty `ADMIN_SECRET` in `.env` first.
 
@@ -37,8 +48,8 @@ npm test
 npm run build
 ```
 
-For real payments, select `paystack`, set Paystack test keys and point its webhook at `/api/payments/webhook`. Keep production secrets server-side. Telegram alerts require a bot token and chat ID. See [PRD.md](./PRD.md) and [docs/MANUAL_TEST_MATRIX.md](./docs/MANUAL_TEST_MATRIX.md).
+Keep production secrets server-side. Telegram alerts require a bot token and chat ID. See [PRD.md](./PRD.md) and [docs/MANUAL_TEST_MATRIX.md](./docs/MANUAL_TEST_MATRIX.md).
 
 ## Privacy
 
-Parsing and fact computation happen in the browser. The backend accepts only guarded operational events and payment metadata; it must never receive message text, member names, chat names, or file names. Set `VITE_TELEMETRY=off` for tests and local sessions where telemetry is unwanted.
+Parsing and fact computation happen in the browser. Telemetry and payment requests carry no message text, member names, chat names, or file names. With `VITE_AI_PLANNER=on` the server also receives computed facts, and with `VITE_AI_MODE=with-quotes` it receives anonymised message text after the user opts in, which it forwards to OpenAI and does not store. Set `VITE_TELEMETRY=off` for tests and local sessions where telemetry is unwanted.
