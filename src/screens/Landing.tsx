@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, ArrowUpRight, LockKeyhole } from 'lucide-react'
+import { countVisitorOnce } from '../lib/usage'
+import { ArrowRight, ArrowUpRight, LockKeyhole, ChartNoAxesColumn } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Brand } from '../components/Brand'
 import { Button } from '../components/Button'
@@ -151,18 +152,18 @@ function StaticBubbles() {
   return <ul className="static-bubbles" aria-hidden="true">{friendMessages.slice(0, 6).map((message) => <li key={message.text} className={`friend-bubble friend-bubble--${message.from ? 'right' : 'left'}`}>{message.text}</li>)}</ul>
 }
 
-export function Landing({ openPrivacy }: { openPrivacy: () => void }) {
+export function Landing({ openPrivacy, openStats }: { openPrivacy: () => void; openStats: () => void }) {
   const setStep = useApp((s) => s.setStep)
   const cards = useSampleCards()
   const still = Boolean(useReducedMotion())
-  useEffect(() => { track('landing_view'); if (new URLSearchParams(location.search).has('ref')) track('referral_landing', { ref: new URLSearchParams(location.search).get('ref')?.slice(0,40) ?? '' }) }, [])
+  useEffect(() => { countVisitorOnce(); track('landing_view'); if (new URLSearchParams(location.search).has('ref')) track('referral_landing', { ref: new URLSearchParams(location.search).get('ref')?.slice(0,40) ?? '' }) }, [])
   const begin = () => { setStep('choose'); window.scrollTo(0, 0) }
   const sample = () => { setStep('upload'); window.scrollTo(0, 0) }
   const price = appConfig.freeAccess ? 'Free, with every theme included.' : 'Free to make and download. Pay only for a custom look.'
   const deck = <Deck decks={cards?.decks} />
   return <main className="landing">
     <section className="hero-band">
-      <nav className="landing__nav"><div className="landing__brand"><Brand /><a className="studio-credit" href={brand.studioUrl} target="_blank" rel="noreferrer"><KodedMark />{credit}</a></div><button className="text-link" onClick={openPrivacy}><LockKeyhole size={16} /> Privacy</button></nav>
+      <nav className="landing__nav"><div className="landing__brand"><Brand /><a className="studio-credit" href={brand.studioUrl} target="_blank" rel="noreferrer"><KodedMark />{credit}</a></div><div className="landing__links"><button className="text-link" onClick={openStats}><ChartNoAxesColumn size={16} /> Stats</button><button className="text-link" onClick={openPrivacy}><LockKeyhole size={16} /> Privacy</button></div></nav>
       <div className="hero">
         <div className="hero__copy">
           <Reveal><span className="hero__kicker">WhatsApp chats · 1:1 and groups</span></Reveal>

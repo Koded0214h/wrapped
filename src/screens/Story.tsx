@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { countUsage } from '../lib/usage'
 import { motion, useReducedMotion } from 'framer-motion'
 import { flushSync } from 'react-dom'
 import { Download, EyeOff, Film, Pause, Play, Settings2, Share2, Sparkles, Volume2, VolumeX, X } from 'lucide-react'
@@ -243,7 +244,7 @@ export function Story() {
     </section>
     {customise && <><div className="drawer-backdrop" onClick={() => setCustomise(false)} /><Customiser onClose={() => setCustomise(false)} buy={(item) => { setCustomise(false); setCheckout(item) }} preview={<div className="customiser-preview-theme" style={style}>{renderedCard}</div>} /></>}
     {checkout && !appConfig.freeAccess && <Checkout purchase={checkout} onClose={() => { setCheckout(null) }} />}
-    {shareable && <ShareSheet {...shareable} onShared={(target) => track('card_shared', { target, cardId: currentCard.id.slice(0,40) })} onClose={() => setShareable(null)} />}
+    {shareable && <ShareSheet {...shareable} onShared={(target) => { countUsage('share'); track('card_shared', { target, cardId: currentCard.id.slice(0,40) }) }} onClose={() => setShareable(null)} />}
     {exportCard && <div className="export-deck" aria-hidden="true"><div className={exportClock === null ? 'export-frame' : 'export-frame export-frame--video'} style={style} ref={exportRef}><CardRenderer still={exportClock === null} clock={exportClock} key={exportCard.id} {...viewProps(exportCard)} card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} /></div></div>}
   </main>
 }
