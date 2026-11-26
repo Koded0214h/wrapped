@@ -157,7 +157,7 @@ export function Story() {
     const shareUrl = `https://${brand.domain}?ref=${encodeURIComponent(currentCard.id)}`
     let target = 'download'
     if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ title: 'Our Chat Wrapped', text: `The group chat has been exposed 👀 ${shareUrl}`, files: [file] }); target = 'native' }
+      try { await navigator.share({ title: 'Our Chat Wrapped', text: `Our chat has been exposed 👀 ${shareUrl}`, files: [file] }); target = 'native' }
       // Safari can refuse to share once rendering has used up the tap; save the image instead.
       catch (error) { if (!(error instanceof DOMException && error.name === 'NotAllowedError')) throw error; await downloadNode(node, file.name) }
     } else await downloadNode(node, file.name)
