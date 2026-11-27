@@ -59,6 +59,8 @@ export type Fact = {
   surpriseScore: number
   context?: FactContext
   sourceExcerpt?: string
+  /** For a moment: the words used most then, shown when AI has not described it. */
+  terms?: string[]
   series?: { label: string; value: number }[]
   /** Real messages. Like the quoted message, these never leave the device. */
   replies?: LaughReply[]

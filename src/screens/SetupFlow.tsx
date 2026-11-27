@@ -82,7 +82,7 @@ export function AiConsent() {
 
 const teasers = ['Reading timestamps and senders…', 'Computing reply times locally…', 'Ranking the surprising facts…', 'Planning a different card deck…']
 function safeFallbackDeck(analysis: AnalysisResult): AnalysisResult {
-  const incompleteIds = new Set(analysis.facts.filter((fact) => fact.kind === 'topic_context' && isPendingContext(fact.value)).map((fact) => fact.id))
+  const incompleteIds = new Set(analysis.facts.filter((fact) => fact.kind === 'topic_context' && isPendingContext(fact.value) && !((fact.terms?.length ?? 0) >= 2)).map((fact) => fact.id))
   return {
     ...analysis,
     aiAttempted: true,

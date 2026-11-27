@@ -12,6 +12,12 @@ export function useStill() {
 
 const numbers = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 })
 
+/** A climbing number as it reads this many seconds in. The video writes each moment with this. */
+export function countAt(target: number, duration: number, seconds: number) {
+  const eased = 1 - (1 - Math.min(1, seconds * 1000 / duration)) ** 3
+  return numbers.format(Number.isInteger(target) ? Math.round(target * eased) : Math.round(target * eased * 10) / 10)
+}
+
 /** Numbers climb to their value. Anything that is not a number is shown as is. */
 export function CountUp({ value, duration = 1100 }: { value: number | string; duration?: number }) {
   const still = useStill()
@@ -32,10 +38,9 @@ export function CountUp({ value, duration = 1100 }: { value: number | string; du
     return () => cancelAnimationFrame(frame)
   }, [duration, still, target])
   if (target === undefined) return <>{value}</>
-  if (clock !== null) {
-    const eased = 1 - (1 - Math.min(1, clock * 1000 / duration)) ** 3
-    return <>{numbers.format(Number.isInteger(target) ? Math.round(target * eased) : Math.round(target * eased * 10) / 10)}</>
-  }
+  // Marked so the video can rewrite the number for each moment without drawing the card again. A <data>
+  // element, because card styles target spans and would restyle the number.
+  if (clock !== null) return <data value={target} data-count={target} data-count-ms={duration}>{countAt(target, duration, clock)}</data>
   return <>{numbers.format((still ? target : shown) ?? 0)}</>
 }
 
