@@ -16,13 +16,27 @@ import { getTheme } from '../themes/themes'
 import { track, timing, trackError } from '../lib/telemetry'
 import { appConfig } from '../config/appConfig'
 import { brand } from '../config/brand'
-import { cardToPng, freezeAt } from '../lib/exportImage'
+import { cardToPng, filmCard } from '../lib/exportImage'
 import { planAnalysisWithAi } from '../analysis/aiPlanner'
 import { aiServerAvailable } from '../lib/aiServer'
 import { ANALYSIS_SCHEMA_VERSION, clearAnalysis } from '../analysis/analysisCache'
 import { ShareSheet, type Shareable } from '../components/ShareSheet'
 import { hasSoundtrack, SOUNDTRACK_URL } from '../lib/soundtrack'
-import { canMakeVideo, makeCarousel, MOMENTS, secondsPerCard, VIDEO_WIDTH, type VideoCard } from '../lib/video'
+import { canMakeVideo, makeCarousel, MOMENTS, secondsPerCard, type VideoCard } from '../lib/video'
+import { countAt } from '../slides/motion'
+import { whenIdle } from '../lib/idle'
+import { CaptureFrame, type CaptureHandle } from '../components/CaptureFrame'
+
+/** A video being written for one exact deck. */
+type VideoJob = {
+  key: string
+  controller: AbortController
+  result: Promise<{ file: File; silent: boolean }>
+  progress: number
+  /** Set once someone is waiting, so it stops holding back for smooth swiping. */
+  hurry: boolean
+  listen?: (done: number) => void
+}
 
 const cardLabels: Partial<Record<Card['layout'], string>> = {
   cover: 'The opening', bigNumber: 'The number that stood out', leaderboard: 'Who did it most?', versus: 'Head to head', quote: 'What kept happening', timeline: 'How it unfolded', award: 'An award was earned', wordCloud: 'The words that stayed', heatmap: 'When the chat came alive', verdict: 'The closing verdict',
@@ -60,7 +74,9 @@ export function Story() {
   const [sharing, setSharing] = useState('')
   const [exportError, setExportError] = useState('')
   const [help, setHelp] = useState(true)
-  const pointer = useRef<number | null>(null)
+  const pointer = useRef<{ x: number; y: number } | null>(null)
+  // Set when a press turned into a swipe, so the tap zone under it does not also count it as a tap.
+  const swiped = useRef(false)
   const reducedMotion = useReducedMotion()
   const [shareable, setShareable] = useState<Shareable | null>(null)
   const [videoSupport, setVideoSupport] = useState<boolean | null>(null)
@@ -73,8 +89,11 @@ export function Story() {
   const [making, setMaking] = useState(false)
   const exportRef = useRef<HTMLDivElement | null>(null)
   const [exportIndex, setExportIndex] = useState<number | null>(null)
-  // Seconds into the card while video frames are captured; null renders the finished card.
-  const [exportClock, setExportClock] = useState<number | null>(null)
+  // Video snapshots are taken in the background as soon as the cards open, and kept per card.
+  const capture = useRef<CaptureHandle>(null)
+  const snapshots = useRef(new Map<string, VideoCard>())
+  const captureQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const prepared = useRef<VideoJob | null>(null)
   const [views, setViews] = useState<Record<string, CardView>>({})
   const viewProps = (card: Card) => ({ view: views[card.id], onView: (key: string, value: unknown) => setViews((current) => ({ ...current, [card.id]: { ...current[card.id], [key]: value } })) })
   const currentTheme = getTheme(theme)
@@ -141,9 +160,63 @@ export function Story() {
     return () => clearTimeout(timer)
   }, [autoAdvance, go, index, totalCards])
   const style = useMemo(() => ({ ...currentTheme.variables, '--font-display': currentFont.stack, '--font-body': bodyStack } as React.CSSProperties), [currentTheme, currentFont])
+  const watermark = !has('watermark')
+  const videoBackground = currentTheme.variables['--bg-from']
+  // Everything that changes how a card looks. A change re-takes only the cards it affects.
+  const cardKey = (card: Card) => JSON.stringify([card.id, card.layout, card.headline, card.roast, card.savageRoast, card.factIds, theme, font, savage, hideNames, watermark, lockedStyle, views[card.id] ?? null])
+  const deckKey = `${cards.map(cardKey).join('\n')}|${soundtrack}`
+
+  /** One card's opening animation, filmed at each MOMENT. One card at a time, however many callers. */
+  const snapshot = (card: Card, signal?: AbortSignal, gentle = false) => {
+    const key = cardKey(card)
+    const run = captureQueue.current.then(async () => {
+      const saved = snapshots.current.get(key)
+      if (saved) return saved
+      await document.fonts.ready
+      if (gentle) await whenIdle()
+      if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError')
+      const node = await capture.current!.show(card, 0)
+      const film = await filmCard(node, MOMENTS, videoBackground, (counter, seconds) => countAt(Number(counter.dataset.count), Number(counter.dataset.countMs), seconds), gentle ? whenIdle : undefined)
+      const rain = node.querySelector<HTMLElement>('[data-rain]')?.dataset.rain?.split(' ').filter(Boolean) ?? []
+      capture.current?.clear()
+      const result: VideoCard = { film, rain }
+      if (!signal?.aborted) snapshots.current.set(key, result)
+      return result
+    })
+    captureQueue.current = run.catch(() => {})
+    return run
+  }
+  /** Starts writing the MP4, or returns the one already being written for this exact deck. */
+  const encode = (shots: VideoCard[], key: string) => {
+    if (prepared.current?.key === key) return prepared.current
+    prepared.current?.controller.abort()
+    const job: VideoJob = { key, controller: new AbortController(), progress: 0, hurry: false, result: Promise.resolve(null as never) }
+    job.result = makeCarousel({ cards: shots, background: videoBackground, withSound: soundtrack, signal: job.controller.signal, quiet: () => !job.hurry, onProgress: (done) => { job.progress = done; job.listen?.(done) }, onSoundError: (error) => trackError(error, { step: 'sound' }) })
+    job.result.catch(() => { if (prepared.current === job) prepared.current = null })
+    prepared.current = job
+    return job
+  }
+  // Starts preparing the video a moment after the cards open, so it is usually ready before anyone asks.
+  useEffect(() => {
+    if (!videoSupport || !analysis) return
+    const current = new Set(cards.map(cardKey))
+    for (const key of snapshots.current.keys()) if (!current.has(key)) snapshots.current.delete(key)
+    if (prepared.current && prepared.current.key !== deckKey) { prepared.current.controller.abort(); prepared.current = null }
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      try {
+        const shots: VideoCard[] = []
+        for (const card of cards) shots.push(await snapshot(card, controller.signal, true))
+        if (!controller.signal.aborted) encode(shots, deckKey)
+      } catch { /* cancelled by a change, or retried when the person asks for the video */ }
+    }, 2500)
+    return () => { clearTimeout(timer); controller.abort() }
+    // deckKey covers every input that changes the result.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deckKey, videoSupport])
+  useEffect(() => () => prepared.current?.controller.abort(), [])
   if (!analysis || !currentCard) return null
   if (analysis.schemaVersion !== ANALYSIS_SCHEMA_VERSION) return <main className="flow"><nav className="flow__nav"><Brand /></nav><div className="flow__body"><section className="processing-error"><span><Sparkles /></span><h1>This deck needs fresh facts.</h1><p>The card logic changed after this chat was analysed. Upload the same export once more so topic context, reply samples and laugh moments can be computed correctly.</p><Button onClick={() => { void clearAnalysis(); setStep('upload') }}>Upload the export again</Button></section></div></main>
-  const watermark = !has('watermark')
 
   const downloadNode = async (node: HTMLElement, fileName: string) => {
     const started = performance.now(); await document.fonts.ready
@@ -198,29 +271,28 @@ export function Story() {
     const controller = new AbortController()
     recording.current = controller
     setMaking(true); setAutoAdvance(false); player.current?.pause(); setSoundOn(false)
+    let job: VideoJob | null = null
     try {
-      await document.fonts.ready
-      const captured: VideoCard[] = []
-      for (let i = 0; i < totalCards; i++) {
-        if (controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError')
-        setSharing(`Animating card ${i + 1} of ${totalCards}…`)
-        flushSync(() => setExportClock(0))
-        const node = await prepareExportNode(i)
-        const moments: string[] = []
-        for (const moment of MOMENTS) {
-          flushSync(() => setExportClock(moment))
-          const release = freezeAt(node, moment)
-          try { moments.push(await cardToPng(node, currentTheme.variables['--bg-from'], VIDEO_WIDTH / 360)) } finally { release() }
-        }
-        captured.push({ moments, rain: node.querySelector<HTMLElement>('[data-rain]')?.dataset.rain?.split(' ').filter(Boolean) ?? [] })
-      }
-      setExportClock(null)
-      setExportIndex(null)
       const started = performance.now()
-      const made = await makeCarousel({ cards: captured, background: currentTheme.variables['--bg-from'], withSound: soundtrack, signal: controller.signal, onProgress: (done) => setSharing(`Making your video… ${Math.round(done * 100)}%`), onSoundError: (error) => trackError(error, { step: 'sound' }) })
+      job = prepared.current?.key === deckKey ? prepared.current : null
+      if (!job) {
+        // Picks up from wherever the background preparation got to.
+        const shots: VideoCard[] = []
+        for (let i = 0; i < totalCards; i++) {
+          if (controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          if (!snapshots.current.has(cardKey(cards[i]))) setSharing(`Animating card ${i + 1} of ${totalCards}…`)
+          shots.push(await snapshot(cards[i], controller.signal))
+        }
+        job = encode(shots, deckKey)
+      }
+      job.hurry = true
+      job.listen = (done) => setSharing(`Making your video… ${Math.round(done * 100)}%`)
+      job.listen(job.progress)
+      // Cancelling stops the wait, not the video: it keeps going, so the next tap is instant.
+      const made = await Promise.race([job.result, new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError'))))])
       setShareable({ ...made, caption: captionFor('Our whole chat, exposed 👀', 'video') })
       timing('video_export', performance.now() - started)
-    } finally { setMaking(false); setExportClock(null) }
+    } finally { if (job) job.listen = undefined; setMaking(false) }
   })
 
   const renderedCard = <CardRenderer {...viewProps(currentCard)} card={currentCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />
@@ -231,9 +303,13 @@ export function Story() {
       <div className="story-meta"><span>Your Chat Wrapped</span><h1>{cardLabel(currentCard.layout)}</h1><p>{index + 1} of {totalCards}</p><div className="story-meta__privacy"><EyeOff /><span>{hideNames ? 'Names are hidden' : 'Names are visible'}<small>Use Customise before sharing.</small></span></div></div>
       <div className="story-stage">
         <div className="story-progress">{cards.map((card, i) => <button key={card.id} onClick={() => go(i)} aria-label={`Go to card ${i + 1}`}><i className={i <= index ? 'is-filled' : ''}>{i === index && autoAdvance && <motion.em initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 6, ease: 'linear' }} />}</i></button>)}</div>
-        <div className="story-frame-wrap">
+        <div className="story-frame-wrap"
+          onPointerDown={(e) => { pointer.current = { x: e.clientX, y: e.clientY }; swiped.current = false }}
+          onPointerUp={(e) => { const start = pointer.current; pointer.current = null; if (!start) return; const dx = e.clientX - start.x; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(e.clientY - start.y)) { swiped.current = true; go(index + (dx < 0 ? 1 : -1)) } }}
+          onPointerCancel={() => { pointer.current = null }}
+          onClickCapture={(e) => { if (swiped.current) { swiped.current = false; e.stopPropagation(); e.preventDefault() } }}>
           <button className="tap-zone tap-zone--left" onClick={() => go(index - 1)} aria-label="Previous card" />
-          <div className="story-frame" style={style} onPointerDown={(e) => { pointer.current = e.clientX }} onPointerUp={(e) => { if (pointer.current !== null && Math.abs(e.clientX - pointer.current) > 45) go(index + (e.clientX < pointer.current ? 1 : -1)); pointer.current = null }} onPointerCancel={() => { pointer.current = null }}>
+          <div className="story-frame" style={style}>
             <motion.div key={currentCard.id} initial={reducedMotion ? false : { x: direction * 140, rotate: direction * 7, scale: .9, opacity: 0 }} animate={{ x: 0, rotate: 0, scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 26 }} className="story-content">{renderedCard}</motion.div>
           </div>
           <button className="tap-zone tap-zone--right" onClick={() => go(index + 1)} aria-label="Next card" />
@@ -245,6 +321,7 @@ export function Story() {
     {customise && <><div className="drawer-backdrop" onClick={() => setCustomise(false)} /><Customiser onClose={() => setCustomise(false)} buy={(item) => { setCustomise(false); setCheckout(item) }} preview={<div className="customiser-preview-theme" style={style}>{renderedCard}</div>} /></>}
     {checkout && !appConfig.freeAccess && <Checkout purchase={checkout} onClose={() => { setCheckout(null) }} />}
     {shareable && <ShareSheet {...shareable} onShared={(target) => { countUsage('share'); track('card_shared', { target, cardId: currentCard.id.slice(0,40) }) }} onClose={() => setShareable(null)} />}
-    {exportCard && <div className="export-deck" aria-hidden="true"><div className={exportClock === null ? 'export-frame' : 'export-frame export-frame--video'} style={style} ref={exportRef}><CardRenderer still={exportClock === null} clock={exportClock} key={exportCard.id} {...viewProps(exportCard)} card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} /></div></div>}
+    {exportCard && <div className="export-deck" aria-hidden="true"><div className="export-frame" style={style} ref={exportRef}><CardRenderer still key={exportCard.id} {...viewProps(exportCard)} card={exportCard} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} /></div></div>}
+    {videoSupport && <CaptureFrame ref={capture} style={style} render={(card, clock) => <CardRenderer clock={clock} {...viewProps(card)} card={card} facts={analysis.facts} members={analysis.members} savage={savage} hideNames={hideNames} preview={lockedStyle} watermark={watermark} />} />}
   </main>
 }

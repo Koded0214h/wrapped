@@ -1,5 +1,7 @@
 import { loadSoundtrack } from './soundtrack'
 import { RAIN_DROPS, rainDrop } from '../slides/motion'
+import { filmFrames, type CardFilm } from './exportImage'
+import { whenIdle } from './idle'
 
 export const VIDEO_WIDTH = 720
 export const VIDEO_HEIGHT = 1280
@@ -42,30 +44,25 @@ async function soundFor(seconds: number) {
   return context.startRendering()
 }
 
-async function picture(url: string) {
-  const image = new Image()
-  image.src = url
-  await image.decode()
-  return image
-}
-
-export type VideoCard = { moments: string[]; rain: string[] }
+export type VideoCard = { film: CardFilm; rain: string[] }
 type Options = {
-  /** Each card's opening animation, captured at MOMENTS, in story order. */
+  /** Each card's opening animation, filmed at MOMENTS, in story order. */
   cards: VideoCard[]
   background: string
   withSound?: boolean
   signal?: AbortSignal
   onProgress?: (done: number) => void
   onSoundError?: (error: unknown) => void
+  /** True while it is made in the background as the person browses: it hands the page back more often, so
+   * swiping stays smooth. Asked on every frame, so a video someone starts waiting for speeds up. */
+  quiet?: () => boolean
 }
 
 const stopIfCancelled = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError') }
 
 /** Writes the cards as an MP4 carousel, frame by frame, as fast as the device can encode. */
-export async function makeCarousel({ cards, background, withSound, signal, onProgress, onSoundError }: Options) {
+export async function makeCarousel({ cards, background, withSound, signal, onProgress, onSoundError, quiet = () => false }: Options) {
   const { AudioBufferSource, BufferTarget, CanvasSource, Mp4OutputFormat, Output, canEncodeAudio } = await writer()
-  const images = await Promise.all(cards.map((card) => Promise.all(card.moments.map(picture))))
   const canvas = document.createElement('canvas')
   canvas.width = VIDEO_WIDTH
   canvas.height = VIDEO_HEIGHT
@@ -73,10 +70,17 @@ export async function makeCarousel({ cards, background, withSound, signal, onPro
   const each = secondsPerCard(cards.length)
   const total = each * cards.length
   const scale = VIDEO_WIDTH / 360
+  // Only the card on screen and the one leaving are kept as pictures.
+  const images = new Map<number, ImageBitmap[]>()
+  const load = async (index: number) => {
+    if (!images.has(index)) images.set(index, await filmFrames(cards[index].film, background, VIDEO_WIDTH, VIDEO_HEIGHT, () => quiet() ? whenIdle() : Promise.resolve()))
+    for (const [kept, frames] of images) if (kept < index - 1) { frames.forEach((frame) => frame.close()); images.delete(kept) }
+  }
+  const forget = () => { for (const frames of images.values()) frames.forEach((frame) => frame.close()); images.clear() }
 
   // Blends the two captured moments either side of this time, so the motion runs smoothly.
   const cardAt = (index: number, time: number, alpha = 1) => {
-    const shots = images[index]
+    const shots = images.get(index)!
     let at = MOMENTS.findIndex((moment) => moment > time) - 1
     if (at < 0) at = time < 0 ? 0 : shots.length - 1
     const next = Math.min(shots.length - 1, at + 1)
@@ -169,12 +173,14 @@ export async function makeCarousel({ cards, background, withSound, signal, onPro
     for (let frame = 0; frame < count; frame++) {
       stopIfCancelled(signal)
       const time = frame / FRAMES_PER_SECOND
+      await load(Math.min(cards.length - 1, Math.floor(time / each)))
       draw(time)
       await video.add(time, 1 / FRAMES_PER_SECOND)
-      if (frame % FRAMES_PER_SECOND === 0) {
+      const gentle = quiet()
+      if (frame % (gentle ? 3 : FRAMES_PER_SECOND) === 0) {
         onProgress?.(frame / count)
-        // Lets the progress text and the cancel button respond.
-        await new Promise((resolve) => setTimeout(resolve))
+        // Lets the progress text, the cancel button and, in the background, swiping respond.
+        await new Promise((resolve) => setTimeout(resolve, gentle ? 4 : 0))
       }
     }
     video.close()
@@ -184,7 +190,7 @@ export async function makeCarousel({ cards, background, withSound, signal, onPro
   } catch (error) {
     await output.cancel().catch(() => {})
     throw error
-  }
+  } finally { forget() }
   const file = new File([target.buffer!], 'chat-wrapped.mp4', { type: 'video/mp4' })
   return { file, silent: Boolean(withSound) && !sound }
 }

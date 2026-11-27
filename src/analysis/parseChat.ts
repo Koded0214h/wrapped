@@ -25,6 +25,8 @@ const stopWords = new Set([
   'the','and','that','this','with','have','you','for','but','not','are','was','just','your','from','they','will','what','when','then','there','about','been','can','all','our','she','him','her','its','too','yes','okay','ok','like',
   'dey','don','sha','make','one','na','no','get','got','come','know','say','still','even','also','really','maybe','well','thing','things','people','person','guy','guys','una','dem','abi','abeg','sef','oya','omo','wetin','wey','fit','wan','want','yeah','yep','oh','ah','lol','lmao','im'
 ])
+// Too common to say what a moment was about, though fine in the chat's overall word count.
+const everydayWords = new Set(['how','now','see','who','why','where','which','would','could','should','them','their','said','going','gonna','time','today','because','cause','sure','good','right','here','some','any','more','much','very','only','did','does','doing','has','had','were','these','those','into','out','over','after','before','than','let','way','day','go','send','sent','pls','please','thanks','thank','sorry','sir','bro','man','real','name','new','first','last','another','other','always','never','again','something','anything','nothing','everyone','everybody','talk','tell','told','think','mean','sabi','go','don\'t','i\'m','it\'s','that\'s','wey','dis','dat','una','abeg'])
 const unsafeSnippet = /(?:https?:\/\/|www\.|\+?\d[\d\s().-]{7,}|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|\b(?:nude|nudes|sex|porn|suicide|kill yourself|rape)\b)/i
 
 function safeSnippet(text: string) {
@@ -272,7 +274,14 @@ function aggregate(parsed: ReturnType<typeof parseLines>, includeAiChunks = fals
     for (const [day, counts] of wordsByDay) if (day.startsWith(period)) for (const [word, count] of counts) totals.set(word, (totals.get(word) ?? 0) + count)
     return totals
   }
-  const topicTerms = (period: string) => [...wordsIn(period).entries()].filter(([word]) => !memberNameWords.has(word)).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([word]) => word)
+  // On how many days each word came up, so everyday words ("how", "now") lose to what was special about a moment.
+  const daysWith = new Map<string, number>()
+  for (const counts of wordsByDay.values()) for (const word of counts.keys()) daysWith.set(word, (daysWith.get(word) ?? 0) + 1)
+  const topicTerms = (period: string) => [...wordsIn(period).entries()]
+    .filter(([word, count]) => count >= 3 && !memberNameWords.has(word) && !everydayWords.has(word))
+    .map(([word, count]) => [word, count * Math.log((wordsByDay.size + 1) / ((daysWith.get(word) ?? 0) + 1))] as const)
+    .filter(([, score]) => score > 0)
+    .sort((a, b) => b[1] - a[1]).slice(0, 4).map(([word]) => word)
   const topicSummary = (date: string, terms: string[]) => {
     const dayMessages = messages.filter((message) => message.dateKey.startsWith(date))
     const candidates = dayMessages.map((message, index) => {

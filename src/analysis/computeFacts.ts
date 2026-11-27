@@ -164,7 +164,7 @@ export function computeFacts(chat: AggregateChat): Fact[] {
   ] as const
   topicFacts.forEach(([id, date, detail]) => {
     const topic = topicFor(date)
-    if (topic) facts.push({ id, kind: 'topic_context', memberIds: [], value: topic.summary, detail, sourceExcerpt: topic.excerpt, surpriseScore: 70, context: { confidence: 72, humourScore: 65, visualScore: 88 } })
+    if (topic) facts.push({ id, kind: 'topic_context', memberIds: [], value: topic.summary, detail, sourceExcerpt: topic.excerpt, terms: topic.terms, surpriseScore: 70, context: { confidence: 72, humourScore: 65, visualScore: 88 } })
   })
   const namedTopicDates = new Set(topicFacts.map(([, date]) => date).filter(Boolean))
   ;(chat.topicMoments ?? []).filter((moment) => !namedTopicDates.has(moment.date)).slice(0, 11).forEach((moment, index) => {

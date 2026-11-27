@@ -4,13 +4,13 @@ import type { Card, Fact, LayoutType, Member } from '../analysis/types'
 import { resolveTemplate } from '../analysis/planCards'
 import { assignArchetypes } from '../analysis/assignArchetypes'
 import { toDisplayMembers, type DisplayMember } from '../analysis/memberNames'
-import { clearWinner, isPendingContext, qualifiesForReplyRank } from '../analysis/fairness'
+import { clearWinner, qualifiesForReplyRank } from '../analysis/fairness'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { MemberCharacter } from '../components/MemberCharacter'
 import { brand } from '../config/brand'
 import { KodedMark, credit } from '../components/KodedLabs'
 import { ClockContext, CountUp, EmojiRain, StillContext, useStill } from './motion'
-import { topicOf } from '../analysis/topics'
+import { contextOf, topicOf } from '../analysis/topics'
 import { TopicNote } from './TopicNote'
 import { Words } from './Words'
 import { useTwoLineHeadings } from './useTwoLineHeadings'
@@ -214,7 +214,7 @@ function GroupLanguage({ referenced, roast }: LayoutProps) {
 function TimeCapsule({ referenced, roast }: LayoutProps) {
   const find = (kind: string) => referenced.find((fact) => fact.kind === kind)
   const byId = (id: string) => referenced.find((fact) => fact.id === id)
-  const context = (fact?: Fact) => fact && !isPendingContext(fact.value) ? String(fact.value) : undefined
+  const context = contextOf
   const busiest = find('busiest_day'), longest = find('longest_conversation'), media = find('media_peak')
   const busiestTopic = byId('busiest_day_topic'), longestTopic = byId('longest_conversation_topic'), mediaTopic = byId('media_peak_topic')
   return <div className="slide group-card group-card--time">
@@ -344,7 +344,7 @@ function MemoryVault({ referenced, roast }: LayoutProps) {
 function MovieFinale({ referenced, members, roast }: LayoutProps) {
   const messages = referenced.find((fact) => fact.kind === 'total_messages')?.value ?? 0
   const verdict = referenced.find((fact) => fact.kind === 'verdict')
-  const context = referenced.filter((fact) => fact.kind === 'topic_context' && !isPendingContext(fact.value)).map((fact) => String(fact.value)).slice(0, 2)
+  const context = referenced.filter((fact) => fact.kind === 'topic_context').map(contextOf).filter((text): text is string => Boolean(text)).slice(0, 2)
   const cast = members.slice(0, 7)
   const lead = topMember(members, (member) => member.messages)
   const mediaRate = members.reduce((sum, member) => sum + member.mediaCount, 0) / Math.max(1, Number(messages))
